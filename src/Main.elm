@@ -239,10 +239,10 @@ chevron size border =
                     chevronPoints (size + 5) 4 2
 
                 Border _ Down ->
-                    chevronPoints (size + 5) -1 2
+                    chevronPoints (size + 5) 5 2
 
                 Border _ Right ->
-                    chevronPoints (size + 5) 7 2
+                    chevronPoints (size + 5) 1 2
 
                 _ ->
                     chevronPoints size 0 0
@@ -259,7 +259,7 @@ chevron size border =
 
 drawBorders : Float -> List Border -> List (Svg Msg)
 drawBorders size borders =
-    List.map (\border -> chevron size border) (Debug.log "bs" borders)
+    List.map (\border -> chevron size border) borders
 
 
 getGrid : Model -> Int -> Int -> Float -> List (Svg Msg)
