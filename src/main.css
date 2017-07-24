@@ -1,0 +1,12 @@
+body {
+}
+
+
+.hex {
+    stroke: black;
+    cursor: pointer;
+}
+
+
+.hex:hover {
+}
