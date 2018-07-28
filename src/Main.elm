@@ -1,6 +1,7 @@
 module Main exposing (..)
 
 import Html exposing (Html, div)
+import Html.Attributes exposing (classList)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Svg.Events exposing (..)
@@ -44,14 +45,22 @@ type alias Model =
     { state : GameState
     , tiles : Dict ( Int, Int ) TileState
     , message : String
+    , cells : Int
     }
 
 
 init : ( Model, Cmd Msg )
 init =
     ( { state = PlayerTurn Red
-      , tiles = Dict.empty
+      , tiles =
+            Dict.fromList
+                [ ( ( 1, 1 ), Filled Red )
+                , ( ( 2, 1 ), Filled Blue )
+                , ( ( 1, 2 ), Filled Red )
+                , ( ( 2, 2 ), Filled Blue )
+                ]
       , message = ""
+      , cells = 11
       }
     , Cmd.none
     )
@@ -75,12 +84,14 @@ type Msg
     = TileClick Int Int
     | Reset
     | CongratulateWinner (Maybe Side)
+    | SetCells Int
 
 
-type alias BoardState = Dict (Int, Int) TileState
-      
+type alias BoardState =
+    Dict ( Int, Int ) TileState
 
-setTile : BoardState -> Int -> Int -> TileState -> Result String (BoardState)
+
+setTile : BoardState -> Int -> Int -> TileState -> Result String BoardState
 setTile collection x y state =
     case Dict.get ( x, y ) collection of
         Just _ ->
@@ -129,19 +140,22 @@ update msg model =
         CongratulateWinner side ->
             model ! []
 
+        SetCells n ->
+            { model | cells = n } ! []
+
 
 
 ---- VIEW ----
 
 
-getHexPoints : Float -> String
-getHexPoints h =
+hexPoints : Float -> String
+hexPoints h =
     List.range 0 5
         |> List.map
-            (\n -> (toFloat n) * (2 * pi / 6))
+            (\n -> toFloat n * (2 * pi / 6))
         |> List.map
             (\n -> ( sin n, cos n ))
-        |> List.map (\( x, y ) -> (toString (x * h / 2)) ++ "," ++ (toString (y * h / 2)))
+        |> List.map (\( x, y ) -> toString (x * h / 2) ++ "," ++ toString (y * h / 2))
         |> String.join " "
 
 
@@ -149,44 +163,62 @@ hex : Float -> List (Svg.Attribute msg) -> List (Svg msg) -> Svg msg
 hex h attrs children =
     polygon
         (attrs
-            ++ [ class "hex", points <| getHexPoints h ]
+            ++ [ class "hex", points <| hexPoints h ]
         )
-        (children)
+        children
 
 
 hexGrid : Model -> Int -> Int -> Html Msg
 hexGrid model xsize ysize =
     let
         tilesize =
-            1000 / ((toFloat ysize) * 1.5) * (sqrt 3) / 2
+            1000 / (toFloat ysize * 1.5 * (sqrt 3))
     in
         svg
-            [ version "1.1", viewBox ("0 0 1000 1000") ]
+            [ Svg.Attributes.class "grid-container"
+            , version "1.1"
+            , viewBox ("0 0 1000 " ++ (toString <| round tilesize * (ysize + 1)))
+            ]
         <|
-            getGrid model xsize ysize tilesize
+            grid model xsize ysize tilesize
 
 
 view : Model -> Html Msg
 view model =
     div [ class "container" ]
         [ Html.text model.message
-        , hexGrid model 5 5
+        , div [] <|
+            List.map
+                (\n ->
+                    div
+                        [ classList
+                            [ ( "cell-sel", True )
+                            , ( "active", model.cells == n )
+                            ]
+                        , onClick <| SetCells n
+                        ]
+                        [ text <| toString n ]
+                )
+            <|
+                List.range 2 15
+        , hexGrid model model.cells model.cells
+        , div [ class "stats" ] [ text <| toString model.state ]
         ]
 
 
-getRhombusTransform : Float -> Int -> Int -> String
-getRhombusTransform h x y =
+rhombusTransform : Float -> Int -> Int -> String
+rhombusTransform h x y =
     let
         oddRow =
             y % 2 == 0
 
         xmod =
-            h * ((sqrt 3) / 2)
+            h * (sqrt 3) / 2
 
         xOffset =
             (toFloat x)
                 * xmod
-                + (toFloat y)
+                + toFloat y
                 / 2
                 * xmod
                 + h
@@ -204,8 +236,8 @@ getRhombusTransform h x y =
             ++ ")"
 
 
-getColorAt : Model -> Int -> Int -> String
-getColorAt model x y =
+colorAt : Model -> Int -> Int -> String
+colorAt model x y =
     case Dict.get ( x, y ) model.tiles of
         Just tile ->
             case tile of
@@ -279,8 +311,8 @@ drawBorders size borders =
     List.map (\border -> chevron size border) borders
 
 
-getGrid : Model -> Int -> Int -> Float -> List (Svg Msg)
-getGrid model xsize ysize size =
+grid : Model -> Int -> Int -> Float -> List (Svg Msg)
+grid model xsize ysize size =
     List.range 1 ysize
         |> List.concatMap
             (\y ->
@@ -288,12 +320,12 @@ getGrid model xsize ysize size =
                     |> List.map
                         (\x ->
                             g
-                                [ transform <| getRhombusTransform size (x - 1) (y - 1)
+                                [ transform <| rhombusTransform size (x - 1) (y - 1)
                                 ]
                             <|
                                 [ hex
                                     size
-                                    [ fill <| getColorAt model x y
+                                    [ fill <| colorAt model x y
                                     , onClick <|
                                         TileClick x y
                                     ]

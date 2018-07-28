@@ -1,4 +1,6 @@
 body {
+    font-family: monospace;
+    font-weight: 200;
 }
 
 @keyframes place {
@@ -11,10 +13,26 @@ body {
     cursor: pointer;
 }
 
-. {
-    animation: place 1s;
-    
+.grid-container {
+    width: 800px;
+    max-width: 100%;
+    border: 1px solid #333;
+    margin: 5px;
 }
 
-.hex:hover {
+
+.cell-sel {
+    display: inline-block;
+    height: 40px;
+    width: 40px;
+    line-height: 40px;
+    text-align: center;
+    margin: 5px;
+    border: 1px solid #333;
+    cursor: pointer;
+}
+
+.cell-sel.active {
+    background-color: #333;
+    color: #fff;
 }
