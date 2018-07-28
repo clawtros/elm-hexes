@@ -42,7 +42,7 @@ type TileState
 
 type alias Model =
     { state : GameState
-    , tiles : Dict String TileState
+    , tiles : Dict ( Int, Int ) TileState
     , message : String
     }
 
@@ -77,28 +77,22 @@ type Msg
     | CongratulateWinner (Maybe Side)
 
 
-dictKey : Int -> Int -> String
-dictKey x y =
-    toString x ++ "_" ++ toString y
+type alias BoardState = Dict (Int, Int) TileState
+      
 
-
-setTile : Dict String TileState -> Int -> Int -> TileState -> Result String (Dict String TileState)
+setTile : BoardState -> Int -> Int -> TileState -> Result String (BoardState)
 setTile collection x y state =
-    let
-        key =
-            dictKey x y
-    in
-        case Dict.get key collection of
-            Just _ ->
-                Result.Err "Tile Occupied"
+    case Dict.get ( x, y ) collection of
+        Just _ ->
+            Result.Err "Attempted to set occupied tile"
 
-            Nothing ->
-                Ok
-                    (Dict.insert
-                        (dictKey x y)
-                        state
-                        collection
-                    )
+        Nothing ->
+            Ok
+                (Dict.insert
+                    ( x, y )
+                    state
+                    collection
+                )
 
 
 otherSide : Side -> Side
@@ -212,7 +206,7 @@ getRhombusTransform h x y =
 
 getColorAt : Model -> Int -> Int -> String
 getColorAt model x y =
-    case Dict.get (dictKey x y) model.tiles of
+    case Dict.get ( x, y ) model.tiles of
         Just tile ->
             case tile of
                 Filled Red ->
