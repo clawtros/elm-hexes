@@ -1,10 +1,11 @@
 module Main exposing (..)
 
-import Html exposing (Html, div, img, button)
+import Html exposing (Html, div)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Svg.Events exposing (..)
 import Dict exposing (Dict)
+import Task
 
 
 ---- MODEL ----
@@ -56,6 +57,16 @@ init =
     )
 
 
+winningSide : Model -> Maybe Side
+winningSide model =
+    Nothing
+
+
+checkWinner : Model -> Cmd Msg
+checkWinner model =
+    Task.perform CongratulateWinner (Task.succeed <| winningSide model)
+
+
 
 ---- UPDATE ----
 
@@ -63,28 +74,39 @@ init =
 type Msg
     = TileClick Int Int
     | Reset
+    | CongratulateWinner (Maybe Side)
 
 
 dictKey : Int -> Int -> String
 dictKey x y =
-    (toString x) ++ "_" ++ (toString y)
+    toString x ++ "_" ++ toString y
 
 
-setTile : Dict String TileState -> Int -> Int -> TileState -> Dict String TileState
+setTile : Dict String TileState -> Int -> Int -> TileState -> Result String (Dict String TileState)
 setTile collection x y state =
     let
         key =
             dictKey x y
     in
         case Dict.get key collection of
-            Just val ->
-                collection
+            Just _ ->
+                Result.Err "Tile Occupied"
 
             Nothing ->
-                Dict.insert
-                    (dictKey x y)
-                    state
-                    collection
+                Ok
+                    (Dict.insert
+                        (dictKey x y)
+                        state
+                        collection
+                    )
+
+
+otherSide : Side -> Side
+otherSide side =
+    if side == Red then
+        Blue
+    else
+        Red
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -95,22 +117,23 @@ update msg model =
 
         TileClick x y ->
             case model.state of
-                PlayerTurn Red ->
-                    { model
-                        | tiles = setTile model.tiles x y (Filled Red)
-                        , state = PlayerTurn Blue
-                    }
-                        ! []
+                PlayerTurn side ->
+                    case setTile model.tiles x y (Filled side) of
+                        Err _ ->
+                            model ! []
 
-                PlayerTurn Blue ->
-                    { model
-                        | tiles = setTile model.tiles x y (Filled Blue)
-                        , state = PlayerTurn Red
-                    }
-                        ! []
+                        Ok tiles ->
+                            { model
+                                | tiles = tiles
+                                , state = PlayerTurn (otherSide side)
+                            }
+                                ! [ checkWinner model ]
 
                 _ ->
                     model ! []
+
+        CongratulateWinner side ->
+            model ! []
 
 
 
@@ -141,7 +164,7 @@ hexGrid : Model -> Int -> Int -> Html Msg
 hexGrid model xsize ysize =
     let
         tilesize =
-            1000 / (toFloat (xsize + ysize))
+            1000 / ((toFloat ysize) * 1.5) * (sqrt 3) / 2
     in
         svg
             [ version "1.1", viewBox ("0 0 1000 1000") ]
@@ -153,7 +176,7 @@ view : Model -> Html Msg
 view model =
     div [ class "container" ]
         [ Html.text model.message
-        , hexGrid model 9 9
+        , hexGrid model 5 5
         ]
 
 
@@ -264,14 +287,14 @@ drawBorders size borders =
 
 getGrid : Model -> Int -> Int -> Float -> List (Svg Msg)
 getGrid model xsize ysize size =
-    List.range 0 ysize
+    List.range 1 ysize
         |> List.concatMap
             (\y ->
-                List.range 0 xsize
+                List.range 1 xsize
                     |> List.map
                         (\x ->
                             g
-                                [ transform <| getRhombusTransform size x y
+                                [ transform <| getRhombusTransform size (x - 1) (y - 1)
                                 ]
                             <|
                                 [ hex
@@ -284,7 +307,7 @@ getGrid model xsize ysize size =
                                 ]
                                     ++ (drawBorders size
                                             (List.concat
-                                                [ if y == 0 then
+                                                [ if y == 1 then
                                                     [ Border Red Up ]
                                                   else
                                                     []
@@ -296,7 +319,7 @@ getGrid model xsize ysize size =
                                                     [ Border Red Down ]
                                                   else
                                                     []
-                                                , if x == 0 then
+                                                , if x == 1 then
                                                     [ Border Blue Left ]
                                                   else
                                                     []

@@ -1,12 +1,20 @@
 body {
 }
 
+@keyframes place {
+    from: {transform: scale(5)}
+    to: {transform: scale(1)}
+}
 
 .hex {
     stroke: black;
     cursor: pointer;
 }
 
+. {
+    animation: place 1s;
+    
+}
 
 .hex:hover {
 }
