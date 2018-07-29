@@ -36,7 +36,7 @@ init =
     ( { state = PlayerTurn Red
       , tiles = Dict.empty
       , lastPath = []
-      , cells = 6
+      , cells = 11
       }
     , Cmd.none
     )
@@ -186,7 +186,7 @@ hexGrid : Model -> Int -> Int -> Html Msg
 hexGrid model xsize ysize =
     let
         tilesize =
-            150
+            100
     in
         svg
             [ Svg.Attributes.class "grid-container"
@@ -416,7 +416,7 @@ winningScreen : Side -> Html Msg
 winningScreen winner =
     div [ class "popup-container" ]
         [ div [ class "popup-contents" ]
-            [ h1 [] [text <| toString winner ++ " wins"]
+            [ h1 [] [ text <| toString winner ++ " wins" ]
             , button [ Html.Events.onClick Reset ] [ text "New Game" ]
             ]
         ]
@@ -444,11 +444,16 @@ view model =
                         [ text <| toString n ]
                 )
             <|
-                List.range 4 15
+                List.range 7 19
         , hexGrid model model.cells model.cells
         , div [ class "stats" ]
-            [ text <| toString model.state
-            , text <| toString model.lastPath
+            [ text <|
+                case model.state of
+                    PlayerTurn side ->
+                        toString side ++ "'s move"
+
+                    _ ->
+                        ""
             ]
         ]
 
