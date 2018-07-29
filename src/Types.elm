@@ -36,7 +36,6 @@ type TileState
 type Msg
     = TileClick Int Int
     | Reset
-    | CongratulateWinner Side
     | SetCells Int
 
 
@@ -48,6 +47,5 @@ type alias Model =
     { state : GameState
     , tiles : BoardState
     , lastPath : List ( Int, Int )
-    , message : String
     , cells : Int
     }

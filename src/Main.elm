@@ -1,12 +1,31 @@
-module Main exposing (..)
+module Main exposing (view, update, init)
 
-import Dict exposing (Dict)
+import Dict
 import Types exposing (..)
-import Html exposing (Html, div)
+import Html exposing (Html, div, button, h1)
 import Html.Attributes exposing (classList)
-import Svg exposing (..)
-import Svg.Attributes exposing (..)
-import Svg.Events exposing (..)
+import Svg
+    exposing
+        ( svg
+        , Svg
+        , g
+        , polyline
+        , text
+        , polygon
+        )
+import Svg.Attributes
+    exposing
+        ( class
+        , transform
+        , fill
+        , stroke
+        , points
+        , strokeWidth
+        , viewBox
+        , version
+        )
+import Svg.Events
+import Html.Events
 
 
 ---- MODEL ----
@@ -15,10 +34,8 @@ import Svg.Events exposing (..)
 init : ( Model, Cmd Msg )
 init =
     ( { state = PlayerTurn Red
-      , tiles =
-            Dict.empty
+      , tiles = Dict.empty
       , lastPath = []
-      , message = ""
       , cells = 6
       }
     , Cmd.none
@@ -32,9 +49,10 @@ winningSide model =
             model.lastPath
 
         side =
+            -- FIXME: Make illegal states unrepresentable
             Maybe.withDefault Red (currentSide model)
 
-        victory =
+        ( start, end ) =
             if side == Red then
                 ( Border Red Up, Border Red Down )
             else
@@ -43,7 +61,11 @@ winningSide model =
         borderMap =
             List.concatMap (\( x, y ) -> borders model.cells model.cells x y) currentPath
     in
-        case ( elemOf borderMap <| Tuple.first victory, elemOf borderMap <| Tuple.second victory ) of
+        case
+            ( elemOf borderMap start
+            , elemOf borderMap end
+            )
+        of
             ( True, True ) ->
                 Just side
 
@@ -91,7 +113,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Reset ->
-            { model | tiles = Dict.empty } ! []
+            init
 
         TileClick x y ->
             case model.state of
@@ -125,15 +147,13 @@ update msg model =
                 _ ->
                     model ! []
 
-        CongratulateWinner side ->
-            model ! []
-
         SetCells n ->
             { model | cells = n } ! []
 
 
 currentSide : Model -> Maybe Side
 currentSide model =
+    -- FIXME: Make illegal states unrepresentable
     case model.state of
         PlayerTurn side ->
             Just side
@@ -166,59 +186,30 @@ hexGrid : Model -> Int -> Int -> Html Msg
 hexGrid model xsize ysize =
     let
         tilesize =
-            75
+            150
     in
         svg
             [ Svg.Attributes.class "grid-container"
             , version "1.1"
             , viewBox
                 ("0 0 "
-                    ++ (toString <| tilesize * (toFloat xsize) * 1.5)
+                    ++ (toString <| tilesize * toFloat xsize * 1.5)
                     ++ " "
-                    ++ (toString <| tilesize * (toFloat ysize))
+                    ++ (toString <| tilesize * toFloat ysize)
                 )
             ]
         <|
             grid model xsize ysize tilesize
 
 
-view : Model -> Html Msg
-view model =
-    div [ class "container" ]
-        [ Html.text model.message
-        , div [] <|
-            List.map
-                (\n ->
-                    div
-                        [ classList
-                            [ ( "cell-sel", True )
-                            , ( "active", model.cells == n )
-                            ]
-                        , onClick <| SetCells n
-                        ]
-                        [ text <| toString n ]
-                )
-            <|
-                List.range 4 15
-        , hexGrid model model.cells model.cells
-        , div [ class "stats" ]
-            [ text <| toString model.state
-            , text <| toString model.lastPath
-            ]
-        ]
-
-
 rhombusTransform : Float -> Int -> Int -> String
 rhombusTransform h x y =
     let
-        oddRow =
-            y % 2 == 0
-
         xmod =
-            h * (sqrt 3) / 2
+            h * sqrt 3 / 2
 
         xOffset =
-            (toFloat x)
+            toFloat x
                 * xmod
                 + toFloat y
                 / 2
@@ -229,13 +220,10 @@ rhombusTransform h x y =
             h * 0.75
 
         yOffset =
-            (toFloat y) * ymod + h
+            toFloat y * ymod + h
     in
-        "translate("
-            ++ (toString (xOffset))
-            ++ ", "
-            ++ (toString (yOffset))
-            ++ ")"
+        "translate"
+            ++ toString ( xOffset, yOffset )
 
 
 colorAt : Model -> Int -> Int -> String
@@ -266,14 +254,14 @@ chevronPoints : Float -> Int -> Int -> String
 chevronPoints h start len =
     List.range start (start + len)
         |> List.map
-            (\n -> (toFloat n) * (2 * pi / 6))
+            (\n -> toFloat n * (2 * pi / 6))
         |> List.map
             (\n -> ( sin n, cos n ))
         |> List.map
             (\( x, y ) ->
-                (toString (x * h / 2))
+                toString (x * h / 2)
                     ++ ","
-                    ++ (toString (y * h / 2))
+                    ++ toString (y * h / 2)
             )
         |> String.join " "
 
@@ -358,10 +346,10 @@ pathAcc board side ( x, y ) visited =
         [] ->
             visited
 
-        x :: xs ->
-            pathAcc board side x (x :: visited)
+        x_ :: xs ->
+            pathAcc board side x_ (x_ :: visited)
                 ++ List.concatMap
-                    (\p -> pathAcc board side p (p :: (x :: visited)))
+                    (\p -> pathAcc board side p (p :: (x_ :: visited)))
                     xs
 
 
@@ -372,7 +360,7 @@ drawBorders size borders =
 
 borders : Int -> Int -> Int -> Int -> List Border
 borders xsize ysize x y =
-    (List.concat
+    List.concat
         [ if y == 1 then
             [ Border Red Up ]
           else
@@ -390,7 +378,6 @@ borders xsize ysize x y =
           else
             []
         ]
-    )
 
 
 grid : Model -> Int -> Int -> Float -> List (Svg Msg)
@@ -408,7 +395,7 @@ grid model xsize ysize size =
                                 [ hex
                                     size
                                     [ fill <| colorAt model x y
-                                    , onClick <|
+                                    , Svg.Events.onClick <|
                                         TileClick x y
                                     ]
                                     []
@@ -420,8 +407,50 @@ grid model xsize ysize size =
             )
 
 
+emptyHtml : Html msg
+emptyHtml =
+    text ""
 
----- PROGRAM ----
+
+winningScreen : Side -> Html Msg
+winningScreen winner =
+    div [ class "popup-container" ]
+        [ div [ class "popup-contents" ]
+            [ h1 [] [text <| toString winner ++ " wins"]
+            , button [ Html.Events.onClick Reset ] [ text "New Game" ]
+            ]
+        ]
+
+
+view : Model -> Html Msg
+view model =
+    div [ class "container" ]
+        [ case model.state of
+            PlayerWon winner ->
+                winningScreen winner
+
+            _ ->
+                emptyHtml
+        , div [] <|
+            List.map
+                (\n ->
+                    div
+                        [ classList
+                            [ ( "cell-sel", True )
+                            , ( "active", model.cells == n )
+                            ]
+                        , Html.Events.onClick <| SetCells n
+                        ]
+                        [ text <| toString n ]
+                )
+            <|
+                List.range 4 15
+        , hexGrid model model.cells model.cells
+        , div [ class "stats" ]
+            [ text <| toString model.state
+            , text <| toString model.lastPath
+            ]
+        ]
 
 
 main : Program Never Model Msg
