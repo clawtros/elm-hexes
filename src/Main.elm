@@ -27,7 +27,28 @@ init =
 
 winningSide : Model -> Maybe Side
 winningSide model =
-    Nothing
+    let
+        currentPath =
+            model.lastPath
+
+        side =
+            Maybe.withDefault Red (currentSide model)
+
+        victory =
+            if side == Red then
+                ( Border Red Up, Border Red Down )
+            else
+                ( Border Blue Left, Border Blue Right )
+
+        borderMap =
+            List.concatMap (\( x, y ) -> borders model.cells model.cells x y) currentPath
+    in
+        case ( elemOf borderMap <| Tuple.first victory, elemOf borderMap <| Tuple.second victory ) of
+            ( True, True ) ->
+                Just side
+
+            ( _, _ ) ->
+                Nothing
 
 
 nextState : Model -> GameState
@@ -80,22 +101,26 @@ update msg model =
                             model ! []
 
                         Ok tiles ->
-                            { model
-                                | tiles = tiles
-                                , state =
-                                    nextState model
-                                , lastPath =
-                                    -- neighbours model.tiles (x, y)
-                                    path
-                                        model.tiles
-                                        (Maybe.withDefault
-                                            Red
-                                         <|
-                                            currentSide model
-                                        )
-                                        ( x, y )
-                            }
-                                ! []
+                            let
+                                nextModel =
+                                    { model
+                                        | lastPath =
+                                            path
+                                                model.tiles
+                                                (Maybe.withDefault
+                                                    Red
+                                                 <|
+                                                    currentSide model
+                                                )
+                                                ( x, y )
+                                    }
+                            in
+                                { nextModel
+                                    | tiles = tiles
+                                    , state =
+                                        nextState nextModel
+                                }
+                                    ! []
 
                 _ ->
                     model ! []
@@ -146,12 +171,12 @@ hexGrid model xsize ysize =
         svg
             [ Svg.Attributes.class "grid-container"
             , version "1.1"
-            , viewBox ("0 0 "
-                           ++ (toString <| tilesize * (toFloat xsize) * 1.5)
-                           ++ " "
-                           ++ (toString <| tilesize * (toFloat ysize))
-                      
-                      )
+            , viewBox
+                ("0 0 "
+                    ++ (toString <| tilesize * (toFloat xsize) * 1.5)
+                    ++ " "
+                    ++ (toString <| tilesize * (toFloat ysize))
+                )
             ]
         <|
             grid model xsize ysize tilesize
@@ -305,11 +330,11 @@ neighbours board ( x, y ) =
 
 path : BoardState -> Side -> ( Int, Int ) -> List ( Int, Int )
 path board side ( x, y ) =
-    pathAcc board side ( x, y ) []
+    ( x, y ) :: pathAcc board side ( x, y ) []
 
 
-elemOf : comparable -> List comparable -> Bool
-elemOf e l =
+elemOf : List a -> a -> Bool
+elemOf l e =
     List.filter ((==) e) l
         |> List.head
         |> (/=) Nothing
@@ -328,7 +353,7 @@ pathAcc board side ( x, y ) visited =
                         _ ->
                             False
                 )
-            |> List.filter (\p -> not <| elemOf p visited)
+            |> List.filter (elemOf visited >> not)
     of
         [] ->
             visited
@@ -343,6 +368,29 @@ pathAcc board side ( x, y ) visited =
 drawBorders : Float -> List Border -> List (Svg Msg)
 drawBorders size borders =
     List.map (\border -> chevron size border) borders
+
+
+borders : Int -> Int -> Int -> Int -> List Border
+borders xsize ysize x y =
+    (List.concat
+        [ if y == 1 then
+            [ Border Red Up ]
+          else
+            []
+        , if x == xsize then
+            [ Border Blue Right ]
+          else
+            []
+        , if y == ysize then
+            [ Border Red Down ]
+          else
+            []
+        , if x == 1 then
+            [ Border Blue Left ]
+          else
+            []
+        ]
+    )
 
 
 grid : Model -> Int -> Int -> Float -> List (Svg Msg)
@@ -365,26 +413,8 @@ grid model xsize ysize size =
                                     ]
                                     []
                                 ]
-                                    ++ (drawBorders size
-                                            (List.concat
-                                                [ if y == 1 then
-                                                    [ Border Red Up ]
-                                                  else
-                                                    []
-                                                , if x == xsize then
-                                                    [ Border Blue Right ]
-                                                  else
-                                                    []
-                                                , if y == ysize then
-                                                    [ Border Red Down ]
-                                                  else
-                                                    []
-                                                , if x == 1 then
-                                                    [ Border Blue Left ]
-                                                  else
-                                                    []
-                                                ]
-                                            )
+                                    ++ (drawBorders size <|
+                                            borders xsize ysize x y
                                        )
                         )
             )
