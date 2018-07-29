@@ -1,52 +1,15 @@
 module Main exposing (..)
 
+import Dict exposing (Dict)
+import Types exposing (..)
 import Html exposing (Html, div)
 import Html.Attributes exposing (classList)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Svg.Events exposing (..)
-import Dict exposing (Dict)
-import Task
 
 
 ---- MODEL ----
-
-
-type Side
-    = Red
-    | Blue
-
-
-type Direction
-    = Up
-    | Down
-    | Left
-    | Right
-
-
-type Border
-    = Border Side Direction
-    | NoBorder
-
-
-type GameState
-    = NotStarted
-    | PlayerTurn Side
-    | FirstTurn
-    | OptionToChoose
-
-
-type TileState
-    = Filled Side
-    | Empty
-
-
-type alias Model =
-    { state : GameState
-    , tiles : Dict ( Int, Int ) TileState
-    , message : String
-    , cells : Int
-    }
 
 
 init : ( Model, Cmd Msg )
@@ -71,24 +34,17 @@ winningSide model =
     Nothing
 
 
-checkWinner : Model -> Cmd Msg
-checkWinner model =
-    Task.perform CongratulateWinner (Task.succeed <| winningSide model)
+nextState : Model -> GameState
+nextState model =
+    case winningSide model of
+        Just side ->
+            PlayerWon side
 
-
-
----- UPDATE ----
-
-
-type Msg
-    = TileClick Int Int
-    | Reset
-    | CongratulateWinner (Maybe Side)
-    | SetCells Int
-
-
-type alias BoardState =
-    Dict ( Int, Int ) TileState
+        Nothing ->
+            currentSide model
+                |> Maybe.map otherSide
+                |> Maybe.withDefault Red
+                |> PlayerTurn
 
 
 setTile : BoardState -> Int -> Int -> TileState -> Result String BoardState
@@ -130,9 +86,10 @@ update msg model =
                         Ok tiles ->
                             { model
                                 | tiles = tiles
-                                , state = PlayerTurn (otherSide side)
+                                , state =
+                                    nextState model
                             }
-                                ! [ checkWinner model ]
+                                ! []
 
                 _ ->
                     model ! []
@@ -146,6 +103,16 @@ update msg model =
 
 
 ---- VIEW ----
+
+
+currentSide : Model -> Maybe Side
+currentSide model =
+    case model.state of
+        PlayerTurn side ->
+            Just side
+
+        _ ->
+            Nothing
 
 
 hexPoints : Float -> String
@@ -261,7 +228,12 @@ chevronPoints h start len =
             (\n -> (toFloat n) * (2 * pi / 6))
         |> List.map
             (\n -> ( sin n, cos n ))
-        |> List.map (\( x, y ) -> (toString (x * h / 2)) ++ "," ++ (toString (y * h / 2)))
+        |> List.map
+            (\( x, y ) ->
+                (toString (x * h / 2))
+                    ++ ","
+                    ++ (toString (y * h / 2))
+            )
         |> String.join " "
 
 
