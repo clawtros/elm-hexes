@@ -85,9 +85,14 @@ update msg model =
                                 , state =
                                     nextState model
                                 , lastPath =
+                                    -- neighbours model.tiles (x, y)
                                     path
                                         model.tiles
-                                        (Maybe.withDefault Red <| currentSide model)
+                                        (Maybe.withDefault
+                                            Red
+                                         <|
+                                            currentSide model
+                                        )
                                         ( x, y )
                             }
                                 ! []
@@ -100,10 +105,6 @@ update msg model =
 
         SetCells n ->
             { model | cells = n } ! []
-
-
-
----- VIEW ----
 
 
 currentSide : Model -> Maybe Side
@@ -140,12 +141,17 @@ hexGrid : Model -> Int -> Int -> Html Msg
 hexGrid model xsize ysize =
     let
         tilesize =
-            1000 / (toFloat ysize * 1.5 * (sqrt 3))
+            75
     in
         svg
             [ Svg.Attributes.class "grid-container"
             , version "1.1"
-            , viewBox ("0 0 1000 " ++ (toString <| round tilesize * (ysize + 1)))
+            , viewBox ("0 0 "
+                           ++ (toString <| tilesize * (toFloat xsize) * 1.5)
+                           ++ " "
+                           ++ (toString <| tilesize * (toFloat ysize))
+                      
+                      )
             ]
         <|
             grid model xsize ysize tilesize
@@ -168,9 +174,12 @@ view model =
                         [ text <| toString n ]
                 )
             <|
-                List.range 2 15
+                List.range 4 15
         , hexGrid model model.cells model.cells
-        , div [ class "stats" ] [ text <| toString model.state, text <| toString model.lastPath ]
+        , div [ class "stats" ]
+            [ text <| toString model.state
+            , text <| toString model.lastPath
+            ]
         ]
 
 
@@ -206,23 +215,26 @@ rhombusTransform h x y =
 
 colorAt : Model -> Int -> Int -> String
 colorAt model x y =
-    if List.any ((==) ( x, y )) model.lastPath then
-        "yellow"
-    else
-        case Dict.get ( x, y ) model.tiles of
-            Just tile ->
-                case tile of
-                    Filled Red ->
+    case Dict.get ( x, y ) model.tiles of
+        Just tile ->
+            case tile of
+                Filled Red ->
+                    if List.any ((==) ( x, y )) model.lastPath then
                         "red"
+                    else
+                        "rgba(255, 0, 0, 0.7)"
 
-                    Filled Blue ->
+                Filled Blue ->
+                    if List.any ((==) ( x, y )) model.lastPath then
                         "blue"
+                    else
+                        "rgba(0, 0, 255, 0.7)"
 
-                    Empty ->
-                        "transparent"
+                Empty ->
+                    "transparent"
 
-            Nothing ->
-                "transparent"
+        Nothing ->
+            "transparent"
 
 
 chevronPoints : Float -> Int -> Int -> String
@@ -305,26 +317,27 @@ elemOf e l =
 
 pathAcc : BoardState -> Side -> ( Int, Int ) -> List ( Int, Int ) -> List ( Int, Int )
 pathAcc board side ( x, y ) visited =
-    let
-        near =
-            neighbours board ( x, y )
-                |> List.filter
-                    (\p ->
-                        case Dict.get p board of
-                            Just (Filled s) ->
-                                s == side
+    case
+        neighbours board ( x, y )
+            |> List.filter
+                (\p ->
+                    case Dict.get p board of
+                        Just (Filled s) ->
+                            s == side
 
-                            _ ->
-                                False
-                    )
-                |> List.filter (\p -> not <| elemOf p visited)
-    in
-        case near of
-            [] ->
-                visited
+                        _ ->
+                            False
+                )
+            |> List.filter (\p -> not <| elemOf p visited)
+    of
+        [] ->
+            visited
 
-            x :: xs ->
-                pathAcc board side x (x :: visited)
+        x :: xs ->
+            pathAcc board side x (x :: visited)
+                ++ List.concatMap
+                    (\p -> pathAcc board side p (p :: (x :: visited)))
+                    xs
 
 
 drawBorders : Float -> List Border -> List (Svg Msg)

@@ -14,7 +14,7 @@ body {
 }
 
 .grid-container {
-    width: 800px;
+    width: 100%;
     max-width: 100%;
     border: 1px solid #333;
     margin: 5px;
