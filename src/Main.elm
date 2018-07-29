@@ -187,22 +187,25 @@ hexGrid model xsize ysize =
     let
         tilesize =
             100
+
+        ( height, width ) =
+            rhombusTransform tilesize xsize ysize
     in
         svg
             [ Svg.Attributes.class "grid-container"
             , version "1.1"
             , viewBox
                 ("0 0 "
-                    ++ (toString <| tilesize * toFloat xsize * 1.5)
+                    ++ (toString height)
                     ++ " "
-                    ++ (toString <| tilesize * toFloat ysize)
+                    ++ (toString <| width + 50)
                 )
             ]
         <|
             grid model xsize ysize tilesize
 
 
-rhombusTransform : Float -> Int -> Int -> String
+rhombusTransform : Float -> Int -> Int -> ( Float, Float )
 rhombusTransform h x y =
     let
         xmod =
@@ -222,8 +225,7 @@ rhombusTransform h x y =
         yOffset =
             toFloat y * ymod + h
     in
-        "translate"
-            ++ toString ( xOffset, yOffset )
+        ( xOffset, yOffset )
 
 
 colorAt : Model -> Int -> Int -> String
@@ -389,7 +391,9 @@ grid model xsize ysize size =
                     |> List.map
                         (\x ->
                             g
-                                [ transform <| rhombusTransform size (x - 1) (y - 1)
+                                [ transform <|
+                                    "translate"
+                                        ++ (toString <| rhombusTransform size (x - 1) (y - 1))
                                 ]
                             <|
                                 [ hex
