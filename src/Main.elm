@@ -16,14 +16,10 @@ init : ( Model, Cmd Msg )
 init =
     ( { state = PlayerTurn Red
       , tiles =
-            Dict.fromList
-                [ ( ( 1, 1 ), Filled Red )
-                , ( ( 2, 1 ), Filled Blue )
-                , ( ( 1, 2 ), Filled Red )
-                , ( ( 2, 2 ), Filled Blue )
-                ]
+            Dict.empty
+      , lastPath = []
       , message = ""
-      , cells = 11
+      , cells = 6
       }
     , Cmd.none
     )
@@ -88,6 +84,11 @@ update msg model =
                                 | tiles = tiles
                                 , state =
                                     nextState model
+                                , lastPath =
+                                    path
+                                        model.tiles
+                                        (Maybe.withDefault Red <| currentSide model)
+                                        ( x, y )
                             }
                                 ! []
 
@@ -169,7 +170,7 @@ view model =
             <|
                 List.range 2 15
         , hexGrid model model.cells model.cells
-        , div [ class "stats" ] [ text <| toString model.state ]
+        , div [ class "stats" ] [ text <| toString model.state, text <| toString model.lastPath ]
         ]
 
 
@@ -205,20 +206,23 @@ rhombusTransform h x y =
 
 colorAt : Model -> Int -> Int -> String
 colorAt model x y =
-    case Dict.get ( x, y ) model.tiles of
-        Just tile ->
-            case tile of
-                Filled Red ->
-                    "red"
+    if List.any ((==) ( x, y )) model.lastPath then
+        "yellow"
+    else
+        case Dict.get ( x, y ) model.tiles of
+            Just tile ->
+                case tile of
+                    Filled Red ->
+                        "red"
 
-                Filled Blue ->
-                    "blue"
+                    Filled Blue ->
+                        "blue"
 
-                Empty ->
-                    "transparent"
+                    Empty ->
+                        "transparent"
 
-        Nothing ->
-            "transparent"
+            Nothing ->
+                "transparent"
 
 
 chevronPoints : Float -> Int -> Int -> String
@@ -276,6 +280,51 @@ chevron size border =
             , class <| "chevron " ++ color
             ]
             []
+
+
+neighbours : BoardState -> ( Int, Int ) -> List ( Int, Int )
+neighbours board ( x, y ) =
+    [ ( 0, -1 ), ( 1, -1 ), ( -1, 0 ), ( 1, 0 ), ( -1, 1 ), ( 0, 1 ) ]
+        |> List.map
+            (\( xoff, yoff ) -> ( x + xoff, y + yoff ))
+        |> List.filter
+            (\c -> Dict.get c board |> (/=) Nothing)
+
+
+path : BoardState -> Side -> ( Int, Int ) -> List ( Int, Int )
+path board side ( x, y ) =
+    pathAcc board side ( x, y ) []
+
+
+elemOf : comparable -> List comparable -> Bool
+elemOf e l =
+    List.filter ((==) e) l
+        |> List.head
+        |> (/=) Nothing
+
+
+pathAcc : BoardState -> Side -> ( Int, Int ) -> List ( Int, Int ) -> List ( Int, Int )
+pathAcc board side ( x, y ) visited =
+    let
+        near =
+            neighbours board ( x, y )
+                |> List.filter
+                    (\p ->
+                        case Dict.get p board of
+                            Just (Filled s) ->
+                                s == side
+
+                            _ ->
+                                False
+                    )
+                |> List.filter (\p -> not <| elemOf p visited)
+    in
+        case near of
+            [] ->
+                visited
+
+            x :: xs ->
+                pathAcc board side x (x :: visited)
 
 
 drawBorders : Float -> List Border -> List (Svg Msg)

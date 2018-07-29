@@ -46,7 +46,8 @@ type alias BoardState =
 
 type alias Model =
     { state : GameState
-    , tiles : Dict ( Int, Int ) TileState
+    , tiles : BoardState
+    , lastPath : List ( Int, Int )
     , message : String
     , cells : Int
     }
