@@ -210,10 +210,9 @@ path board side ( x, y ) =
                 else
                     List.foldl
                         (\point visited ->
-                            point
-                                :: pathAcc board side point visited
+                            pathAcc board side point (point :: visited)
                         )
-                        (point :: visited)
+                        visited
                         nears
 
         validNeighbors visited ( x_, y_ ) =
@@ -229,7 +228,7 @@ path board side ( x, y ) =
                     )
                 |> List.filter (elemOf visited >> not)
     in
-        pathAcc board side ( x, y ) []
+        ( x, y ) :: pathAcc board side ( x, y ) []
 
 
 elemOf : List a -> a -> Bool
