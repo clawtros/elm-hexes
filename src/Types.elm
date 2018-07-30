@@ -20,10 +20,6 @@ type Border
     | NoBorder
 
 
-type GameState
-    = GameState Side (Maybe Side)
-
-
 type TileState
     = Filled Side
     | Empty
@@ -40,7 +36,7 @@ type alias BoardState =
 
 
 type alias Model =
-    { state : GameState
+    { currentPlayer : Side
     , tiles : BoardState
     , lastPath : List ( Int, Int )
     , cells : Int

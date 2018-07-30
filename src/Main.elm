@@ -1,6 +1,7 @@
 module Main exposing (view, update, init)
 
 import Dict
+import Tuple
 import Types exposing (..)
 import Html exposing (Html, div, button, h1)
 import Html.Attributes exposing (classList)
@@ -33,7 +34,7 @@ import GameBoard exposing (..)
 
 init : ( Model, Cmd Msg )
 init =
-    ( { state = GameState Red Nothing
+    ( { currentPlayer = Red
       , tiles = Dict.empty
       , lastPath = []
       , cells = 11
@@ -42,37 +43,29 @@ init =
     )
 
 
-won : Side -> Int -> List ( Int, Int ) -> Bool
-won side cells path =
+won : Model -> Bool
+won model =
     let
-        ( start, end ) =
-            if side == Red then
-                ( Border Red Up, Border Red Down )
-            else
-                ( Border Blue Left, Border Blue Right )
+        coord =
+            case model.currentPlayer of
+                Blue ->
+                    Tuple.first
 
-        borderMap =
-            List.concatMap (\( x, y ) -> borders cells x y) path
+                Red ->
+                    Tuple.second
     in
-        elemOf borderMap start && elemOf borderMap end
+        List.all (flip List.any model.lastPath)
+            [ rightColour model, coord >> (==) 1, coord >> (==) model.cells ]
 
 
 setTile : BoardState -> Int -> Int -> TileState -> Result String BoardState
 setTile collection x y state =
     case Dict.get ( x, y ) collection of
         Just _ ->
-            Result.Err "Attempted to set occupied tile"
+            Err "Attempted to set occupied tile"
 
         Nothing ->
             Ok <| Dict.insert ( x, y ) state collection
-
-
-otherSide : Side -> Side
-otherSide side =
-    if side == Red then
-        Blue
-    else
-        Red
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -82,31 +75,26 @@ update msg model =
             init
 
         TileClick x y ->
-            case model.state of
-                GameState side Nothing ->
-                    case setTile model.tiles x y (Filled side) of
-                        Err _ ->
-                            model ! []
-
-                        Ok tiles ->
-                            -- FIXME: messy
-                            let
-                                lastPath =
-                                    path model.tiles side ( x, y )
-                            in
-                                { model
-                                    | lastPath = lastPath
-                                    , state =
-                                        if won side model.cells lastPath then
-                                            GameState side (Just side)
-                                        else
-                                            GameState (otherSide side) Nothing
-                                    , tiles = tiles
-                                }
-                                    ! []
-
-                _ ->
+            case setTile model.tiles x y (Filled model.currentPlayer) of
+                Err _ ->
                     model ! []
+
+                Ok tiles ->
+                    let
+                        newModel =
+                            updatePath { model | tiles = tiles } ( x, y )
+                    in
+                        if won newModel then
+                            newModel ! []
+                        else
+                            { newModel
+                                | currentPlayer =
+                                    if model.currentPlayer == Red then
+                                        Blue
+                                    else
+                                        Red
+                            }
+                                ! []
 
         SetCells n ->
             { model | cells = n } ! []
@@ -118,13 +106,13 @@ colorAt model x y =
         Just tile ->
             case tile of
                 Filled Red ->
-                    if List.any ((==) ( x, y )) model.lastPath then
+                    if List.member ( x, y ) model.lastPath then
                         "red"
                     else
                         "rgba(255, 0, 0, 0.7)"
 
                 Filled Blue ->
-                    if List.any ((==) ( x, y )) model.lastPath then
+                    if List.member ( x, y ) model.lastPath then
                         "blue"
                     else
                         "rgba(0, 0, 255, 0.7)"
@@ -136,60 +124,39 @@ colorAt model x y =
             "transparent"
 
 
-neighbours : BoardState -> ( Int, Int ) -> List ( Int, Int )
-neighbours board ( x, y ) =
+neighbours : ( Int, Int ) -> List ( Int, Int )
+neighbours ( x, y ) =
     [ ( 0, -1 ), ( 1, -1 ), ( -1, 0 ), ( 1, 0 ), ( -1, 1 ), ( 0, 1 ) ]
-        |> List.map
-            (\( xoff, yoff ) -> ( x + xoff, y + yoff ))
-        |> List.filter
-            (\c -> Dict.get c board |> (/=) Nothing)
+        |> List.map (\( xoff, yoff ) -> ( x + xoff, y + yoff ))
 
 
-
--- support language variants
-
-
-neighbors =
-    neighbours
+rightColour : Model -> ( Int, Int ) -> Bool
+rightColour model p =
+    Dict.get p model.tiles == Just (Filled model.currentPlayer)
 
 
-path : BoardState -> Side -> ( Int, Int ) -> List ( Int, Int )
-path board side ( x, y ) =
+updatePath : Model -> ( Int, Int ) -> Model
+updatePath model point =
     let
-        pathAcc board side point visited =
-            case validNeighbours visited point of
+        check leaves path =
+            case leaves of
                 [] ->
-                    visited
+                    { model | lastPath = path }
 
-                nears ->
-                    List.foldl
-                        (\point visited ->
-                            pathAcc board side point (point :: visited)
-                        )
-                        visited
-                        nears
-
-        validNeighbours visited ( x_, y_ ) =
-            neighbours board ( x_, y_ )
-                |> List.filter
-                    (\p ->
-                        case Dict.get p board of
-                            Just (Filled s) ->
-                                s == side
-
-                            _ ->
-                                False
-                    )
-                |> List.filter (elemOf visited >> not)
+                leaf :: leaves ->
+                    let
+                        newLeaves =
+                            List.filter
+                                (\p ->
+                                    rightColour model p
+                                        && not (List.member p path)
+                                )
+                            <|
+                                neighbours leaf
+                    in
+                        check (leaves ++ newLeaves) <| path ++ newLeaves
     in
-        ( x, y ) :: pathAcc board side ( x, y ) []
-
-
-elemOf : List a -> a -> Bool
-elemOf l e =
-    List.filter ((==) e) l
-        |> List.head
-        |> (/=) Nothing
+        check [ point ] []
 
 
 emptyHtml : Html msg
@@ -209,38 +176,34 @@ winningScreen winner =
 
 view : Model -> Html Msg
 view model =
-    div [ class "container" ]
-        [ case model.state of
-            GameState _ (Just winner) ->
-                winningScreen winner
-
-            _ ->
-                emptyHtml
-        , div [] <|
-            List.map
-                (\n ->
-                    div
-                        [ classList
-                            [ ( "cell-sel", True )
-                            , ( "active", model.cells == n )
-                            ]
-                        , Html.Events.onClick <| SetCells n
-                        ]
-                        [ text <| toString n ]
+    let
+        ( overlay, moveDisplay ) =
+            if won model then
+                ( winningScreen model.currentPlayer, emptyHtml )
+            else
+                ( emptyHtml
+                , text <| toString model.currentPlayer ++ "'s move"
                 )
-            <|
-                List.range 7 19
-        , hexGrid (colorAt model) model.cells
-        , div [ class "stats" ]
-            [ text <|
-                case model.state of
-                    GameState side Nothing ->
-                        toString side ++ "'s move"
-
-                    _ ->
-                        ""
+    in
+        div [ class "container" ]
+            [ overlay
+            , div [] <|
+                List.map
+                    (\n ->
+                        div
+                            [ classList
+                                [ ( "cell-sel", True )
+                                , ( "active", model.cells == n )
+                                ]
+                            , Html.Events.onClick <| SetCells n
+                            ]
+                            [ text <| toString n ]
+                    )
+                <|
+                    List.range 7 19
+            , hexGrid (colorAt model) model.cells
+            , div [ class "stats" ] [ moveDisplay ]
             ]
-        ]
 
 
 main : Program Never Model Msg
