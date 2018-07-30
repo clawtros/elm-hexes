@@ -24,8 +24,8 @@ import Svg.Attributes
         , viewBox
         , version
         )
-import Svg.Events
 import Html.Events
+import GameBoard exposing (..)
 
 
 ---- MODEL ----
@@ -49,8 +49,7 @@ winningSide model =
             model.lastPath
 
         side =
-            -- FIXME: Make illegal states unrepresentable
-            Maybe.withDefault Red (currentSide model)
+            currentSide model
 
         ( start, end ) =
             if side == Red then
@@ -59,7 +58,7 @@ winningSide model =
                 ( Border Blue Left, Border Blue Right )
 
         borderMap =
-            List.concatMap (\( x, y ) -> borders model.cells model.cells x y) currentPath
+            List.concatMap (\( x, y ) -> borders model.cells x y) currentPath
     in
         case
             ( elemOf borderMap start
@@ -81,8 +80,7 @@ nextState model =
 
         Nothing ->
             currentSide model
-                |> Maybe.map otherSide
-                |> Maybe.withDefault Red
+                |> otherSide
                 |> PlayerTurn
 
 
@@ -129,11 +127,7 @@ update msg model =
                                         | lastPath =
                                             path
                                                 model.tiles
-                                                (Maybe.withDefault
-                                                    Red
-                                                 <|
-                                                    currentSide model
-                                                )
+                                                (currentSide model)
                                                 ( x, y )
                                     }
                             in
@@ -151,81 +145,15 @@ update msg model =
             { model | cells = n } ! []
 
 
-currentSide : Model -> Maybe Side
+currentSide : Model -> Side
 currentSide model =
     -- FIXME: Make illegal states unrepresentable
     case model.state of
         PlayerTurn side ->
-            Just side
+            side
 
         _ ->
-            Nothing
-
-
-hexPoints : Float -> String
-hexPoints h =
-    List.range 0 5
-        |> List.map
-            (\n -> toFloat n * (2 * pi / 6))
-        |> List.map
-            (\n -> ( sin n, cos n ))
-        |> List.map (\( x, y ) -> toString (x * h / 2) ++ "," ++ toString (y * h / 2))
-        |> String.join " "
-
-
-hex : Float -> List (Svg.Attribute msg) -> List (Svg msg) -> Svg msg
-hex h attrs children =
-    polygon
-        (attrs
-            ++ [ class "hex", points <| hexPoints h ]
-        )
-        children
-
-
-hexGrid : Model -> Int -> Int -> Html Msg
-hexGrid model xsize ysize =
-    let
-        tilesize =
-            100
-
-        ( height, width ) =
-            rhombusTransform tilesize xsize ysize
-    in
-        svg
-            [ Svg.Attributes.class "grid-container"
-            , version "1.1"
-            , viewBox
-                ("0 0 "
-                    ++ (toString height)
-                    ++ " "
-                    ++ (toString <| width + (tilesize / 2))
-                )
-            ]
-        <|
-            grid model xsize ysize tilesize
-
-
-rhombusTransform : Float -> Int -> Int -> ( Float, Float )
-rhombusTransform h x y =
-    let
-        xmod =
-            h * sqrt 3 / 2
-
-        xOffset =
-            toFloat x
-                * xmod
-                + toFloat y
-                / 2
-                * xmod
-                + h
-
-        ymod =
-            h * 0.75
-
-        yOffset =
-            toFloat y * ymod + h
-    in
-        ( xOffset, yOffset )
+            Red
 
 
 colorAt : Model -> Int -> Int -> String
@@ -252,63 +180,6 @@ colorAt model x y =
             "transparent"
 
 
-chevronPoints : Float -> Int -> Int -> String
-chevronPoints h start len =
-    List.range start (start + len)
-        |> List.map
-            (\n -> toFloat n * (2 * pi / 6))
-        |> List.map
-            (\n -> ( sin n, cos n ))
-        |> List.map
-            (\( x, y ) ->
-                toString (x * h / 2)
-                    ++ ","
-                    ++ toString (y * h / 2)
-            )
-        |> String.join " "
-
-
-chevron : Float -> Border -> Svg Msg
-chevron size border =
-    let
-        color =
-            case border of
-                Border Red _ ->
-                    "red"
-
-                Border Blue _ ->
-                    "blue"
-
-                NoBorder ->
-                    "transparent"
-
-        ps =
-            case border of
-                Border _ Up ->
-                    chevronPoints (size + 5) 2 2
-
-                Border _ Left ->
-                    chevronPoints (size + 5) 4 2
-
-                Border _ Down ->
-                    chevronPoints (size + 5) 5 2
-
-                Border _ Right ->
-                    chevronPoints (size + 5) 1 2
-
-                _ ->
-                    chevronPoints size 0 0
-    in
-        polyline
-            [ strokeWidth "3"
-            , stroke color
-            , fill "transparent"
-            , points ps
-            , class <| "chevron " ++ color
-            ]
-            []
-
-
 neighbours : BoardState -> ( Int, Int ) -> List ( Int, Int )
 neighbours board ( x, y ) =
     [ ( 0, -1 ), ( 1, -1 ), ( -1, 0 ), ( 1, 0 ), ( -1, 1 ), ( 0, 1 ) ]
@@ -318,9 +189,47 @@ neighbours board ( x, y ) =
             (\c -> Dict.get c board |> (/=) Nothing)
 
 
+
+-- support language variants
+
+
+neighbors =
+    neighbours
+
+
 path : BoardState -> Side -> ( Int, Int ) -> List ( Int, Int )
 path board side ( x, y ) =
-    ( x, y ) :: pathAcc board side ( x, y ) []
+    let
+        pathAcc board side point visited =
+            let
+                nears =
+                    validNeighbors visited point
+            in
+                if nears == [] then
+                    visited
+                else
+                    List.foldl
+                        (\point visited ->
+                            point
+                                :: pathAcc board side point visited
+                        )
+                        (point :: visited)
+                        nears
+
+        validNeighbors visited ( x_, y_ ) =
+            neighbours board ( x_, y_ )
+                |> List.filter
+                    (\p ->
+                        case Dict.get p board of
+                            Just (Filled s) ->
+                                s == side
+
+                            _ ->
+                                False
+                    )
+                |> List.filter (elemOf visited >> not)
+    in
+        pathAcc board side ( x, y ) []
 
 
 elemOf : List a -> a -> Bool
@@ -328,87 +237,6 @@ elemOf l e =
     List.filter ((==) e) l
         |> List.head
         |> (/=) Nothing
-
-
-pathAcc : BoardState -> Side -> ( Int, Int ) -> List ( Int, Int ) -> List ( Int, Int )
-pathAcc board side ( x, y ) visited =
-    case
-        neighbours board ( x, y )
-            |> List.filter
-                (\p ->
-                    case Dict.get p board of
-                        Just (Filled s) ->
-                            s == side
-
-                        _ ->
-                            False
-                )
-            |> List.filter (elemOf visited >> not)
-    of
-        [] ->
-            visited
-
-        x_ :: xs ->
-            pathAcc board side x_ (x_ :: visited)
-                ++ List.concatMap
-                    (\p -> pathAcc board side p (p :: (x_ :: visited)))
-                    xs
-
-
-drawBorders : Float -> List Border -> List (Svg Msg)
-drawBorders size borders =
-    List.map (chevron size) borders
-
-
-borders : Int -> Int -> Int -> Int -> List Border
-borders xsize ysize x y =
-    List.concat
-        [ if y == 1 then
-            [ Border Red Up ]
-          else
-            []
-        , if x == xsize then
-            [ Border Blue Right ]
-          else
-            []
-        , if y == ysize then
-            [ Border Red Down ]
-          else
-            []
-        , if x == 1 then
-            [ Border Blue Left ]
-          else
-            []
-        ]
-
-
-grid : Model -> Int -> Int -> Float -> List (Svg Msg)
-grid model xsize ysize size =
-    List.range 1 ysize
-        |> List.concatMap
-            (\y ->
-                List.range 1 xsize
-                    |> List.map
-                        (\x ->
-                            g
-                                [ transform <|
-                                    "translate"
-                                        ++ (toString <| rhombusTransform size (x - 1) (y - 1))
-                                ]
-                            <|
-                                [ hex
-                                    size
-                                    [ fill <| colorAt model x y
-                                    , Svg.Events.onClick <|
-                                        TileClick x y
-                                    ]
-                                    []
-                                ]
-                                    ++ (drawBorders size <|
-                                            borders xsize ysize x y
-                                       )
-                        )
-            )
 
 
 emptyHtml : Html msg
@@ -449,7 +277,7 @@ view model =
                 )
             <|
                 List.range 7 19
-        , hexGrid model model.cells model.cells
+        , hexGrid (colorAt model) model.cells
         , div [ class "stats" ]
             [ text <|
                 case model.state of
