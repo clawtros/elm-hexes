@@ -21,11 +21,7 @@ type Border
 
 
 type GameState
-    = NotStarted
-    | PlayerTurn Side
-    | PlayerWon Side
-    | FirstTurn
-    | OptionToChoose
+    = GameState Side (Maybe Side)
 
 
 type TileState

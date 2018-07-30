@@ -33,7 +33,7 @@ import GameBoard exposing (..)
 
 init : ( Model, Cmd Msg )
 init =
-    ( { state = PlayerTurn Red
+    ( { state = GameState Red Nothing
       , tiles = Dict.empty
       , lastPath = []
       , cells = 11
@@ -42,15 +42,9 @@ init =
     )
 
 
-winningSide : Model -> Maybe Side
-winningSide model =
+won : Side -> Int -> List ( Int, Int ) -> Bool
+won side cells path =
     let
-        currentPath =
-            model.lastPath
-
-        side =
-            currentSide model
-
         ( start, end ) =
             if side == Red then
                 ( Border Red Up, Border Red Down )
@@ -58,30 +52,9 @@ winningSide model =
                 ( Border Blue Left, Border Blue Right )
 
         borderMap =
-            List.concatMap (\( x, y ) -> borders model.cells x y) currentPath
+            List.concatMap (\( x, y ) -> borders cells x y) path
     in
-        case
-            ( elemOf borderMap start
-            , elemOf borderMap end
-            )
-        of
-            ( True, True ) ->
-                Just side
-
-            ( _, _ ) ->
-                Nothing
-
-
-nextState : Model -> GameState
-nextState model =
-    case winningSide model of
-        Just side ->
-            PlayerWon side
-
-        Nothing ->
-            currentSide model
-                |> otherSide
-                |> PlayerTurn
+        elemOf borderMap start && elemOf borderMap end
 
 
 setTile : BoardState -> Int -> Int -> TileState -> Result String BoardState
@@ -91,11 +64,7 @@ setTile collection x y state =
             Result.Err "Attempted to set occupied tile"
 
         Nothing ->
-            Ok <|
-                Dict.insert
-                    ( x, y )
-                    state
-                    collection
+            Ok <| Dict.insert ( x, y ) state collection
 
 
 otherSide : Side -> Side
@@ -114,7 +83,7 @@ update msg model =
 
         TileClick x y ->
             case model.state of
-                PlayerTurn side ->
+                GameState side Nothing ->
                     case setTile model.tiles x y (Filled side) of
                         Err _ ->
                             model ! []
@@ -122,19 +91,17 @@ update msg model =
                         Ok tiles ->
                             -- FIXME: messy
                             let
-                                nextModel =
-                                    { model
-                                        | lastPath =
-                                            path
-                                                model.tiles
-                                                (currentSide model)
-                                                ( x, y )
-                                    }
+                                lastPath =
+                                    path model.tiles side ( x, y )
                             in
-                                { nextModel
-                                    | tiles = tiles
+                                { model
+                                    | lastPath = lastPath
                                     , state =
-                                        nextState nextModel
+                                        if won side model.cells lastPath then
+                                            GameState side (Just side)
+                                        else
+                                            GameState (otherSide side) Nothing
+                                    , tiles = tiles
                                 }
                                     ! []
 
@@ -143,17 +110,6 @@ update msg model =
 
         SetCells n ->
             { model | cells = n } ! []
-
-
-currentSide : Model -> Side
-currentSide model =
-    -- FIXME: Make illegal states unrepresentable
-    case model.state of
-        PlayerTurn side ->
-            side
-
-        _ ->
-            Red
 
 
 colorAt : Model -> Int -> Int -> String
@@ -201,13 +157,11 @@ path : BoardState -> Side -> ( Int, Int ) -> List ( Int, Int )
 path board side ( x, y ) =
     let
         pathAcc board side point visited =
-            let
-                nears =
-                    validNeighbors visited point
-            in
-                if nears == [] then
+            case validNeighbours visited point of
+                [] ->
                     visited
-                else
+
+                nears ->
                     List.foldl
                         (\point visited ->
                             pathAcc board side point (point :: visited)
@@ -215,7 +169,7 @@ path board side ( x, y ) =
                         visited
                         nears
 
-        validNeighbors visited ( x_, y_ ) =
+        validNeighbours visited ( x_, y_ ) =
             neighbours board ( x_, y_ )
                 |> List.filter
                     (\p ->
@@ -257,7 +211,7 @@ view : Model -> Html Msg
 view model =
     div [ class "container" ]
         [ case model.state of
-            PlayerWon winner ->
+            GameState _ (Just winner) ->
                 winningScreen winner
 
             _ ->
@@ -280,7 +234,7 @@ view model =
         , div [ class "stats" ]
             [ text <|
                 case model.state of
-                    PlayerTurn side ->
+                    GameState side Nothing ->
                         toString side ++ "'s move"
 
                     _ ->
