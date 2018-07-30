@@ -93,12 +93,11 @@ setTile collection x y state =
             Result.Err "Attempted to set occupied tile"
 
         Nothing ->
-            Ok
-                (Dict.insert
+            Ok <|
+                Dict.insert
                     ( x, y )
                     state
                     collection
-                )
 
 
 otherSide : Side -> Side
@@ -123,6 +122,7 @@ update msg model =
                             model ! []
 
                         Ok tiles ->
+                            -- FIXME: messy
                             let
                                 nextModel =
                                     { model
@@ -198,7 +198,7 @@ hexGrid model xsize ysize =
                 ("0 0 "
                     ++ (toString height)
                     ++ " "
-                    ++ (toString <| width + 50)
+                    ++ (toString <| width + (tilesize / 2))
                 )
             ]
         <|
@@ -357,7 +357,7 @@ pathAcc board side ( x, y ) visited =
 
 drawBorders : Float -> List Border -> List (Svg Msg)
 drawBorders size borders =
-    List.map (\border -> chevron size border) borders
+    List.map (chevron size) borders
 
 
 borders : Int -> Int -> Int -> Int -> List Border
