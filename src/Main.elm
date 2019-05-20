@@ -1,35 +1,42 @@
-module Main exposing (view, update, init)
+module Main exposing (..)
 
+import Browser
 import Dict
-import Tuple
-import Types exposing (..)
-import Html exposing (Html, div, button, h1)
+import GameBoard exposing (..)
+import Html exposing (Html, button, div, h1)
 import Html.Attributes exposing (classList)
+import Html.Events
 import Svg
     exposing
-        ( svg
-        , Svg
+        ( Svg
         , g
-        , polyline
-        , text
         , polygon
+        , polyline
+        , svg
+        , text
         )
 import Svg.Attributes
     exposing
         ( class
-        , transform
         , fill
-        , stroke
         , points
+        , stroke
         , strokeWidth
-        , viewBox
+        , transform
         , version
+        , viewBox
         )
-import Html.Events
-import GameBoard exposing (..)
+import Tuple
+import Types exposing (..)
+
 
 
 ---- MODEL ----
+
+
+flip : (a -> b -> c) -> b -> a -> c
+flip f a b =
+    f b a
 
 
 init : ( Model, Cmd Msg )
@@ -54,8 +61,8 @@ won model =
                 Red ->
                     Tuple.second
     in
-        List.all (flip List.any model.lastPath)
-            [ rightColour model, coord >> (==) 1, coord >> (==) model.cells ]
+    List.all (flip List.any model.lastPath)
+        [ rightColour model, coord >> (==) 1, coord >> (==) model.cells ]
 
 
 setTile : BoardState -> Int -> Int -> TileState -> Result String BoardState
@@ -77,27 +84,30 @@ update msg model =
         TileClick x y ->
             case setTile model.tiles x y (Filled model.currentPlayer) of
                 Err _ ->
-                    model ! []
+                    ( model, Cmd.none )
 
                 Ok tiles ->
                     let
                         newModel =
                             updatePath { model | tiles = tiles } ( x, y )
                     in
-                        if won newModel then
-                            newModel ! []
-                        else
-                            { newModel
-                                | currentPlayer =
-                                    if model.currentPlayer == Red then
-                                        Blue
-                                    else
-                                        Red
-                            }
-                                ! []
+                    if won newModel then
+                        ( newModel, Cmd.none )
+
+                    else
+                        ( { newModel
+                            | currentPlayer =
+                                if model.currentPlayer == Red then
+                                    Blue
+
+                                else
+                                    Red
+                          }
+                        , Cmd.none
+                        )
 
         SetCells n ->
-            { model | cells = n } ! []
+            ( { model | cells = n }, Cmd.none )
 
 
 colorAt : Model -> Int -> Int -> String
@@ -108,12 +118,14 @@ colorAt model x y =
                 Filled Red ->
                     if List.member ( x, y ) model.lastPath then
                         "red"
+
                     else
                         "rgba(255, 0, 0, 0.7)"
 
                 Filled Blue ->
                     if List.member ( x, y ) model.lastPath then
                         "blue"
+
                     else
                         "rgba(0, 0, 255, 0.7)"
 
@@ -138,8 +150,8 @@ rightColour model p =
 updatePath : Model -> ( Int, Int ) -> Model
 updatePath model point =
     let
-        check leaves path =
-            case leaves of
+        check leaves_ path =
+            case leaves_ of
                 [] ->
                     { model | lastPath = path }
 
@@ -154,9 +166,9 @@ updatePath model point =
                             <|
                                 neighbours leaf
                     in
-                        check (leaves ++ newLeaves) <| path ++ newLeaves
+                    check (leaves ++ newLeaves) <| path ++ newLeaves
     in
-        check [ point ] []
+    check [ point ] []
 
 
 emptyHtml : Html msg
@@ -168,7 +180,7 @@ winningScreen : Side -> Html Msg
 winningScreen winner =
     div [ class "popup-container" ]
         [ div [ class "popup-contents" ]
-            [ h1 [] [ text <| toString winner ++ " wins" ]
+            [ h1 [] [ text <| sideToString winner ++ " wins" ]
             , button [ Html.Events.onClick Reset ] [ text "New Game" ]
             ]
         ]
@@ -180,37 +192,38 @@ view model =
         ( overlay, moveDisplay ) =
             if won model then
                 ( winningScreen model.currentPlayer, emptyHtml )
+
             else
                 ( emptyHtml
-                , text <| toString model.currentPlayer ++ "'s move"
+                , text <| sideToString model.currentPlayer ++ "'s move"
                 )
     in
-        div [ class "container" ]
-            [ overlay
-            , div [] <|
-                List.map
-                    (\n ->
-                        div
-                            [ classList
-                                [ ( "cell-sel", True )
-                                , ( "active", model.cells == n )
-                                ]
-                            , Html.Events.onClick <| SetCells n
+    div [ class "container" ]
+        [ overlay
+        , div [] <|
+            List.map
+                (\n ->
+                    div
+                        [ classList
+                            [ ( "cell-sel", True )
+                            , ( "active", model.cells == n )
                             ]
-                            [ text <| toString n ]
-                    )
-                <|
-                    List.range 7 19
-            , hexGrid (colorAt model) model.cells
-            , div [ class "stats" ] [ moveDisplay ]
-            ]
+                        , Html.Events.onClick <| SetCells n
+                        ]
+                        [ text <| String.fromInt n ]
+                )
+            <|
+                List.range 7 19
+        , hexGrid (colorAt model) model.cells
+        , div [ class "stats" ] [ moveDisplay ]
+        ]
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { view = view
-        , init = init
+        , init = always init
         , update = update
         , subscriptions = always Sub.none
         }

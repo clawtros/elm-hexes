@@ -1,9 +1,24 @@
-module GameBoard exposing (..)
+module GameBoard exposing (borders, chevron, chevronPoints, drawBorders, hex, hexGrid, hexPoints, rhombusTransform, sideToString)
 
-import Types exposing (..)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Svg.Events exposing (onClick)
+import Types exposing (..)
+
+
+tupleString : (a -> String) -> ( a, a ) -> String
+tupleString f t =
+    "(" ++ f (Tuple.first t) ++ ", " ++ f (Tuple.second t) ++ ")"
+
+
+sideToString : Side -> String
+sideToString side =
+    case side of
+        Red ->
+            "Red"
+
+        Blue ->
+            "Blue"
 
 
 borders : Int -> Int -> Int -> List Border
@@ -11,18 +26,22 @@ borders cellsAcross x y =
     List.concat
         [ if y == 1 then
             [ Border Red Up ]
+
           else
             []
         , if x == cellsAcross then
             [ Border Blue Right ]
+
           else
             []
         , if y == cellsAcross then
             [ Border Red Down ]
+
           else
             []
         , if x == 1 then
             [ Border Blue Left ]
+
           else
             []
         ]
@@ -37,9 +56,9 @@ hexPoints h =
             (\n -> ( sin n, cos n ))
         |> List.map
             (\( x, y ) ->
-                toString (x * h / 2)
+                String.fromFloat (x * h / 2)
                     ++ ","
-                    ++ toString (y * h / 2)
+                    ++ String.fromFloat (y * h / 2)
             )
         |> String.join " "
 
@@ -62,9 +81,9 @@ chevronPoints h start len =
             (\n -> ( sin n, cos n ))
         |> List.map
             (\( x, y ) ->
-                toString (x * h / 2)
+                String.fromFloat (x * h / 2)
                     ++ ","
-                    ++ toString (y * h / 2)
+                    ++ String.fromFloat (y * h / 2)
             )
         |> String.join " "
 
@@ -100,14 +119,14 @@ chevron size border =
                 _ ->
                     chevronPoints size 0 0
     in
-        polyline
-            [ strokeWidth "3"
-            , stroke color
-            , fill "transparent"
-            , points ps
-            , class <| "chevron " ++ color
-            ]
-            []
+    polyline
+        [ strokeWidth "3"
+        , stroke color
+        , fill "transparent"
+        , points ps
+        , class <| "chevron " ++ color
+        ]
+        []
 
 
 rhombusTransform : Float -> Int -> Int -> ( Float, Float )
@@ -130,12 +149,12 @@ rhombusTransform h x y =
         yOffset =
             toFloat y * ymod + h
     in
-        ( xOffset, yOffset )
+    ( xOffset, yOffset )
 
 
 drawBorders : Float -> List Border -> List (Svg Msg)
-drawBorders size borders =
-    List.map (chevron size) borders
+drawBorders size borders_ =
+    List.map (chevron size) borders_
 
 
 hexGrid : (Int -> Int -> String) -> Int -> Svg Msg
@@ -147,38 +166,38 @@ hexGrid colorize cellsAcross =
         ( height, width ) =
             rhombusTransform tilesize cellsAcross cellsAcross
     in
-        List.range 1 cellsAcross
-            |> List.concatMap
-                (\y ->
-                    List.range 1 cellsAcross
-                        |> List.map
-                            (\x ->
-                                g
-                                    [ transform <|
-                                        "translate"
-                                            ++ (toString <| rhombusTransform tilesize (x - 1) (y - 1))
+    List.range 1 cellsAcross
+        |> List.concatMap
+            (\y ->
+                List.range 1 cellsAcross
+                    |> List.map
+                        (\x ->
+                            g
+                                [ transform <|
+                                    "translate"
+                                        ++ (tupleString String.fromFloat <| rhombusTransform tilesize (x - 1) (y - 1))
+                                ]
+                            <|
+                                [ hex
+                                    tilesize
+                                    [ fill <| colorize x y
+                                    , Svg.Events.onClick <|
+                                        TileClick x y
                                     ]
-                                <|
-                                    [ hex
-                                        tilesize
-                                        [ fill <| colorize x y
-                                        , Svg.Events.onClick <|
-                                            TileClick x y
-                                        ]
-                                        []
-                                    ]
-                                        ++ (drawBorders tilesize <|
-                                                borders cellsAcross x y
-                                           )
-                            )
+                                    []
+                                ]
+                                    ++ (drawBorders tilesize <|
+                                            borders cellsAcross x y
+                                       )
+                        )
+            )
+        |> svg
+            [ Svg.Attributes.class "grid-container"
+            , version "1.1"
+            , viewBox
+                ("0 0 "
+                    ++ String.fromFloat height
+                    ++ " "
+                    ++ (String.fromFloat <| width + (tilesize / 2))
                 )
-            |> svg
-                [ Svg.Attributes.class "grid-container"
-                , version "1.1"
-                , viewBox
-                    ("0 0 "
-                        ++ toString height
-                        ++ " "
-                        ++ (toString <| width + (tilesize / 2))
-                    )
-                ]
+            ]
