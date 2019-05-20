@@ -3,9 +3,14 @@
   <head>
     <title></title>
     <meta charset="utf-8" />
-    <script src="./src/app.js"></script>
+    <script src="./index.js"></script>
   </head>
   <body>
     <div id="root"></div>
   </body>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      initHexes(document.getElementById("root"))
+    })
+  </script>
 </html>
