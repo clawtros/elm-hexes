@@ -35,14 +35,12 @@ import Types exposing (..)
 ---- MODEL ----
 
 
-evalBoard : Side -> BoardState -> Int
-evalBoard side state =
-    0
-
-
-paths : BoardState -> Side -> List (List ( Int, Int ))
-paths state side =
-    []
+evalBoard : BoardState -> Side -> Int
+evalBoard state side =
+    let paths = tupleSquare 4
+              |> List.map pathAt state side
+    in
+        0
 
 
 flip : (a -> b -> c) -> b -> a -> c

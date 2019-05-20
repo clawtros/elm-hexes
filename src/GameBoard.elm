@@ -1,9 +1,18 @@
-module GameBoard exposing (borders, chevron, chevronPoints, drawBorders, hex, hexGrid, hexPoints, rhombusTransform, sideToString)
+module GameBoard exposing (borders, chevron, chevronPoints, drawBorders, hex, hexGrid, hexPoints, rhombusTransform, sideToString, tupleSquare)
 
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Svg.Events exposing (onClick)
 import Types exposing (..)
+
+
+tupleSquare : Int -> List ( Int, Int )
+tupleSquare size =
+    List.range 0 size
+        |> List.concatMap
+            (\y ->
+                List.map (\x -> ( x, y )) (List.range 0 size)
+            )
 
 
 tupleString : (a -> String) -> ( a, a ) -> String
