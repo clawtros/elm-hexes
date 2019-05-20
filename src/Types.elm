@@ -1,4 +1,4 @@
-module Types exposing (..)
+module Types exposing (BoardState, Border(..), Direction(..), Model, Msg(..), Path, Side(..), TileState(..))
 
 import Dict exposing (Dict)
 
@@ -35,9 +35,13 @@ type alias BoardState =
     Dict ( Int, Int ) TileState
 
 
+type alias Path =
+    (Side, List ( Int, Int ))
+
+
 type alias Model =
     { currentPlayer : Side
     , tiles : BoardState
-    , lastPath : List ( Int, Int )
+    , lastPath : Path
     , cells : Int
     }

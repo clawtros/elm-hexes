@@ -1,4 +1,4 @@
-module Main exposing (..)
+module Main exposing (colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, rightColour, setTile, update, updatePath, view, winningScreen, won)
 
 import Browser
 import Dict
@@ -6,6 +6,7 @@ import GameBoard exposing (..)
 import Html exposing (Html, button, div, h1)
 import Html.Attributes exposing (classList)
 import Html.Events
+import Minimax
 import Svg
     exposing
         ( Svg
@@ -34,6 +35,16 @@ import Types exposing (..)
 ---- MODEL ----
 
 
+evalBoard : Side -> BoardState -> Int
+evalBoard side state =
+    0
+
+
+paths : BoardState -> Side -> List (List ( Int, Int ))
+paths state side =
+    []
+
+
 flip : (a -> b -> c) -> b -> a -> c
 flip f a b =
     f b a
@@ -43,26 +54,33 @@ init : ( Model, Cmd Msg )
 init =
     ( { currentPlayer = Red
       , tiles = Dict.empty
-      , lastPath = []
-      , cells = 11
+      , lastPath = ( Red, [] )
+      , cells = 4
       }
     , Cmd.none
     )
 
 
-won : Model -> Bool
-won model =
+pathIsWinning : Int -> Path -> Bool
+pathIsWinning boardSize ( side, path ) =
     let
         coord =
-            case model.currentPlayer of
+            case side of
                 Blue ->
                     Tuple.first
 
                 Red ->
                     Tuple.second
     in
-    List.all (flip List.any model.lastPath)
-        [ rightColour model, coord >> (==) 1, coord >> (==) model.cells ]
+    List.all (flip List.any path)
+        [ coord >> (==) 1
+        , coord >> (==) boardSize
+        ]
+
+
+won : Model -> Bool
+won model =
+    pathIsWinning model.cells model.lastPath
 
 
 setTile : BoardState -> Int -> Int -> TileState -> Result String BoardState
@@ -116,14 +134,14 @@ colorAt model x y =
         Just tile ->
             case tile of
                 Filled Red ->
-                    if List.member ( x, y ) model.lastPath then
+                    if List.member ( x, y ) <| Tuple.second model.lastPath then
                         "red"
 
                     else
                         "rgba(255, 0, 0, 0.7)"
 
                 Filled Blue ->
-                    if List.member ( x, y ) model.lastPath then
+                    if List.member ( x, y ) <| Tuple.second model.lastPath then
                         "blue"
 
                     else
@@ -147,20 +165,21 @@ rightColour model p =
     Dict.get p model.tiles == Just (Filled model.currentPlayer)
 
 
-updatePath : Model -> ( Int, Int ) -> Model
-updatePath model point =
+pathAt : BoardState -> Side -> ( Int, Int ) -> List ( Int, Int )
+pathAt state side point =
     let
         check leaves_ path =
             case leaves_ of
                 [] ->
-                    { model | lastPath = path }
+                    path
 
                 leaf :: leaves ->
                     let
                         newLeaves =
                             List.filter
                                 (\p ->
-                                    rightColour model p
+                                    Dict.get p state
+                                        == Just (Filled side)
                                         && not (List.member p path)
                                 )
                             <|
@@ -169,6 +188,11 @@ updatePath model point =
                     check (leaves ++ newLeaves) <| path ++ newLeaves
     in
     check [ point ] []
+
+
+updatePath : Model -> ( Int, Int ) -> Model
+updatePath model point =
+    { model | lastPath = ( model.currentPlayer, pathAt model.tiles model.currentPlayer point ) }
 
 
 emptyHtml : Html msg
@@ -195,7 +219,10 @@ view model =
 
             else
                 ( emptyHtml
-                , text <| sideToString model.currentPlayer ++ "'s move"
+                , div []
+                    [ text <| sideToString model.currentPlayer ++ "'s move"
+                    , text <| String.fromInt (evalBoard model.currentPlayer model.tiles)
+                    ]
                 )
     in
     div [ class "container" ]
