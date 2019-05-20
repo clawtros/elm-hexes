@@ -32,11 +32,13 @@ type Msg
 
 
 type alias BoardState =
-    Dict ( Int, Int ) TileState
+    { tiles : Dict ( Int, Int ) TileState
+    , size : Int
+    }
 
 
 type alias Path =
-    (Side, List ( Int, Int ))
+    ( Side, List ( Int, Int ) )
 
 
 type alias Model =

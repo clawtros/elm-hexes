@@ -4,6 +4,7 @@ import Expect
 import Fuzz exposing (..)
 import GameBoard
 import String
+import Main
 import Test exposing (..)
 
 

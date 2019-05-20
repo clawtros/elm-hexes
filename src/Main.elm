@@ -1,7 +1,7 @@
 module Main exposing (colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, rightColour, setTile, update, updatePath, view, winningScreen, won)
 
 import Browser
-import Dict
+import Dict exposing (Dict)
 import GameBoard exposing (..)
 import Html exposing (Html, button, div, h1)
 import Html.Attributes exposing (classList)
@@ -37,10 +37,7 @@ import Types exposing (..)
 
 evalBoard : BoardState -> Side -> Int
 evalBoard state side =
-    let paths = tupleSquare 4
-              |> List.map pathAt state side
-    in
-        0
+    0
 
 
 flip : (a -> b -> c) -> b -> a -> c
@@ -51,7 +48,7 @@ flip f a b =
 init : ( Model, Cmd Msg )
 init =
     ( { currentPlayer = Red
-      , tiles = Dict.empty
+      , tiles = { size = 4, tiles = Dict.empty }
       , lastPath = ( Red, [] )
       , cells = 4
       }
@@ -83,12 +80,17 @@ won model =
 
 setTile : BoardState -> Int -> Int -> TileState -> Result String BoardState
 setTile collection x y state =
-    case Dict.get ( x, y ) collection of
+    case Dict.get ( x, y ) collection.tiles of
         Just _ ->
             Err "Attempted to set occupied tile"
 
         Nothing ->
-            Ok <| Dict.insert ( x, y ) state collection
+            Ok <| updateTiles collection <| Dict.insert ( x, y ) state collection.tiles
+
+
+updateTiles : BoardState -> Dict ( Int, Int ) TileState -> BoardState
+updateTiles state tiles =
+    { state | tiles = tiles }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -128,7 +130,7 @@ update msg model =
 
 colorAt : Model -> Int -> Int -> String
 colorAt model x y =
-    case Dict.get ( x, y ) model.tiles of
+    case Dict.get ( x, y ) model.tiles.tiles of
         Just tile ->
             case tile of
                 Filled Red ->
@@ -160,7 +162,7 @@ neighbours ( x, y ) =
 
 rightColour : Model -> ( Int, Int ) -> Bool
 rightColour model p =
-    Dict.get p model.tiles == Just (Filled model.currentPlayer)
+    Dict.get p model.tiles.tiles == Just (Filled model.currentPlayer)
 
 
 pathAt : BoardState -> Side -> ( Int, Int ) -> List ( Int, Int )
@@ -176,7 +178,7 @@ pathAt state side point =
                         newLeaves =
                             List.filter
                                 (\p ->
-                                    Dict.get p state
+                                    Dict.get p state.tiles
                                         == Just (Filled side)
                                         && not (List.member p path)
                                 )
@@ -219,7 +221,7 @@ view model =
                 ( emptyHtml
                 , div []
                     [ text <| sideToString model.currentPlayer ++ "'s move"
-                    , text <| String.fromInt (evalBoard model.currentPlayer model.tiles)
+                    , text <| String.fromInt (evalBoard model.tiles model.currentPlayer)
                     ]
                 )
     in
