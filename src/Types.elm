@@ -2,6 +2,8 @@ module Types exposing (BoardState, Border(..), Direction(..), Model, Msg(..), Pa
 
 import Dict exposing (Dict)
 
+type alias MoveLocation = (Int, Int)
+
 
 type Side
     = Red
@@ -25,7 +27,6 @@ type Msg
     | Reset
     | SetCells Int
 
-
 type alias BoardState =
     { tiles : Dict ( Int, Int ) Side
     , size : Int
@@ -38,7 +39,9 @@ type alias Path =
 
 type alias Model =
     { currentPlayer : Side
-    , tiles : BoardState
+    , boardState : BoardState
     , lastPath : Path
     , cells : Int
+    , vsAi : Bool
+    , thinking : Bool
     }

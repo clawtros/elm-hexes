@@ -1,4 +1,4 @@
-module Main exposing (allPaths, colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, rightColour, setTile, update, updatePath, updateTiles, view, winningScreen, won)
+module Main exposing (allPaths, colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, rightColour, setTile, update, updatePath, updateTiles, view, winningScreen, won, bestMove)
 
 import Browser
 import Dict exposing (Dict)
@@ -6,7 +6,7 @@ import GameBoard exposing (..)
 import Html exposing (Html, button, div, h1)
 import Html.Attributes exposing (classList)
 import Html.Events
-import Minimax exposing (IntegerExt(..))
+import Minimax exposing (IntegerExt(..), Node)
 import Svg
     exposing
         ( Svg
@@ -29,6 +29,7 @@ import Svg.Attributes
         )
 import Tuple
 import Types exposing (..)
+import Task exposing (Task)
 
 
 ---- MODEL ----
@@ -77,6 +78,52 @@ evalBoard state side =
         Number 0
 
 
+notSide : Side -> Side
+notSide side =
+    case side of
+        Red ->
+            Blue
+
+        Blue ->
+            Red
+
+
+bestMove : BoardState -> Side -> Node BoardState ( ( Int, Int ), Side )
+bestMove state side =
+    let
+        moveFunc : Node BoardState ( ( Int, Int ), Side ) -> ( ( Int, Int ), Side ) -> BoardState
+        moveFunc node taken =
+            node.position
+
+        valueFunc : Node BoardState ( ( Int, Int ), Side ) -> Int
+        valueFunc node =
+            case evalBoard node.position side of
+                Number n ->
+                    n
+
+                Pos_Inf ->
+                    1000
+
+                Neg_Inf ->
+                    -1000
+
+        possibleMovesFunc : Node BoardState ( ( Int, Int ), Side ) -> List ( ( Int, Int ), Side )
+        possibleMovesFunc node =
+            tupleSquare node.position.size
+                |> List.map
+                    (\t ->
+                        ( t
+                        , if remainderBy node.depth 2 == 0 then
+                            side
+                          else
+                            notSide side
+                        )
+                    )
+                |> List.filter (\( p, _ ) -> not (List.member p <| Dict.keys node.position.tiles))
+    in
+        Minimax.minimax moveFunc valueFunc possibleMovesFunc state 6
+
+
 flip : (a -> b -> c) -> b -> a -> c
 flip f a b =
     f b a
@@ -85,9 +132,11 @@ flip f a b =
 init : ( Model, Cmd Msg )
 init =
     ( { currentPlayer = Red
-      , tiles = { size = 4, tiles = Dict.empty }
+      , boardState = { size = 4, tiles = Dict.empty }
       , lastPath = ( Red, [] )
       , cells = 4
+      , vsAi = True
+      , thinking = False
       }
     , Cmd.none
     )
@@ -137,27 +186,16 @@ update msg model =
             init
 
         TileClick x y ->
-            case setTile model.tiles x y model.currentPlayer of
+            case setTile model.boardState x y model.currentPlayer of
                 Err _ ->
                     ( model, Cmd.none )
 
                 Ok tiles ->
                     let
                         newModel =
-                            updatePath { model | tiles = tiles } ( x, y )
+                            updatePath { model | boardState = tiles } ( x, y )
                     in
-                        if won newModel then
-                            ( newModel, Cmd.none )
-                        else
-                            ( { newModel
-                                | currentPlayer =
-                                    if model.currentPlayer == Red then
-                                        Blue
-                                    else
-                                        Red
-                              }
-                            , Cmd.none
-                            )
+                        ( { newModel | currentPlayer = notSide model.currentPlayer }, Cmd.none )
 
         SetCells n ->
             ( { model | cells = n }, Cmd.none )
@@ -165,20 +203,14 @@ update msg model =
 
 colorAt : Model -> Int -> Int -> String
 colorAt model x y =
-    case Dict.get ( x, y ) model.tiles.tiles of
+    case Dict.get ( x, y ) model.boardState.tiles of
         Just tile ->
             case tile of
                 Red ->
-                    if List.member ( x, y ) <| Tuple.second model.lastPath then
-                        "red"
-                    else
-                        "rgba(255, 0, 0, 0.7)"
+                    "red"
 
                 Blue ->
-                    if List.member ( x, y ) <| Tuple.second model.lastPath then
-                        "blue"
-                    else
-                        "rgba(0, 0, 255, 0.7)"
+                    "blue"
 
         Nothing ->
             "transparent"
@@ -192,7 +224,7 @@ neighbours ( x, y ) =
 
 rightColour : Model -> ( Int, Int ) -> Bool
 rightColour model p =
-    Dict.get p model.tiles.tiles == Just model.currentPlayer
+    Dict.get p model.boardState.tiles == Just model.currentPlayer
 
 
 pathAt : BoardState -> Side -> ( Int, Int ) -> Path
@@ -226,7 +258,7 @@ pathAt state side point =
 
 updatePath : Model -> ( Int, Int ) -> Model
 updatePath model point =
-    { model | lastPath = pathAt model.tiles model.currentPlayer point }
+    { model | lastPath = pathAt model.boardState model.currentPlayer point }
 
 
 emptyHtml : Html msg
@@ -247,6 +279,9 @@ winningScreen winner =
 view : Model -> Html Msg
 view model =
     let
+        _ =
+            Debug.log "!" model.boardState
+
         ( overlay, moveDisplay ) =
             if won model then
                 ( winningScreen model.currentPlayer, emptyHtml )
@@ -254,12 +289,12 @@ view model =
                 ( emptyHtml
                 , div []
                     [ div [] [ text <| sideToString model.currentPlayer ++ "'s move" ]
-                    , div [] [ text <| showIntegerExt <| evalBoard model.tiles model.currentPlayer ]
+                    , div [] [ text <| showIntegerExt <| evalBoard model.boardState model.currentPlayer ]
                     , div []
                         [ text <|
                             String.fromInt <|
                                 List.length <|
-                                    allPaths model.tiles
+                                    allPaths model.boardState
                         ]
                     ]
                 )

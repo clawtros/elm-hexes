@@ -4,11 +4,11 @@ import Dict exposing (Dict)
 import Expect
 import Fuzz exposing (..)
 import GameBoard
-import Main exposing (allPaths, pathAt, evalBoard)
+import Main exposing (allPaths, pathAt, evalBoard, bestMove)
 import String
 import Test exposing (..)
 import Types exposing (..)
-import Minimax exposing (IntegerExt(..))
+import Minimax exposing (IntegerExt(..), Node)
 
 
 smallBoardState =
@@ -37,6 +37,18 @@ smallBoardStateWithRedWinning =
     }
 
 
+smallBoardStateWithNearRedWin =
+    { size = 2
+    , tiles =
+        Dict.fromList
+            [ ( ( 0, 0 ), Red )
+            , ( ( 0, 1 ), Red )
+            , ( ( 1, 0 ), Blue )
+            , ( ( 1, 2 ), Blue )
+            ]
+    }
+
+
 aiTests : Test
 aiTests =
     describe "test ai / board scoring"
@@ -44,6 +56,13 @@ aiTests =
             \() ->
                 Expect.equal Pos_Inf <|
                     evalBoard smallBoardStateWithRedWinning Red
+        -- , test "eval next move" <|
+        --     \() ->
+        --         let
+        --             { move } =
+        --                 bestMove smallBoardStateWithRedWinning Red
+        --         in
+        --             Expect.equal (Just ( ( 0, 2 ), Red )) move
         ]
 
 
