@@ -1,4 +1,4 @@
-module Main exposing (colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, rightColour, setTile, update, updatePath, view, winningScreen, won)
+module Main exposing (colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, rightColour, setTile, update, updatePath, updateTiles, view, winningScreen, won)
 
 import Browser
 import Dict exposing (Dict)
@@ -165,7 +165,7 @@ rightColour model p =
     Dict.get p model.tiles.tiles == Just (Filled model.currentPlayer)
 
 
-pathAt : BoardState -> Side -> ( Int, Int ) -> List ( Int, Int )
+pathAt : BoardState -> Side -> ( Int, Int ) -> Path
 pathAt state side point =
     let
         check leaves_ path =
@@ -187,12 +187,12 @@ pathAt state side point =
                     in
                     check (leaves ++ newLeaves) <| path ++ newLeaves
     in
-    check [ point ] []
+    ( side, check [ point ] [] )
 
 
 updatePath : Model -> ( Int, Int ) -> Model
 updatePath model point =
-    { model | lastPath = ( model.currentPlayer, pathAt model.tiles model.currentPlayer point ) }
+    { model | lastPath = pathAt model.tiles model.currentPlayer point }
 
 
 emptyHtml : Html msg
