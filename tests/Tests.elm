@@ -31,6 +31,16 @@ pathTests =
             \() ->
                 Expect.equal ( Red, [ ( 1, 0 ), ( 0, 0 ) ] ) <|
                     Main.pathAt smallBoardStateWithPath Red ( 0, 0 )
+        , test "winning path wins" <|
+            \() ->
+                Expect.equal True <|
+                    Main.pathIsWinning 2
+                        ( Red, [ ( 1, 0 ), ( 0, 1 ), ( 1, 2 ) ] )
+        , test "hue matters" <|
+            \() ->
+                Expect.equal False <|
+                    Main.pathIsWinning 2
+                        ( Blue, [ ( 1, 0 ), ( 0, 1 ), ( 1, 2 ) ] )
         ]
 
 
