@@ -1,4 +1,4 @@
-module Types exposing (BoardState, Border(..), Direction(..), Model, Msg(..), Path, Side(..), TileState(..))
+module Types exposing (BoardState, Border(..), Direction(..), Model, Msg(..), Path, Side(..))
 
 import Dict exposing (Dict)
 
@@ -20,11 +20,6 @@ type Border
     | NoBorder
 
 
-type TileState
-    = Filled Side
-    | Empty
-
-
 type Msg
     = TileClick Int Int
     | Reset
@@ -32,7 +27,7 @@ type Msg
 
 
 type alias BoardState =
-    { tiles : Dict ( Int, Int ) TileState
+    { tiles : Dict ( Int, Int ) Side
     , size : Int
     }
 

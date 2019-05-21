@@ -4,7 +4,7 @@ import Dict exposing (Dict)
 import Expect
 import Fuzz exposing (..)
 import GameBoard
-import Main
+import Main exposing (allPaths, pathAt)
 import String
 import Test exposing (..)
 import Types exposing (..)
@@ -20,14 +20,18 @@ pathTests =
             { size = 2
             , tiles =
                 Dict.fromList
-                    [ ( ( 0, 0 ), Filled Red )
-                    , ( ( 1, 0 ), Filled Red )
-                    , ( ( 0, 1 ), Filled Blue )
+                    [ ( ( 0, 0 ), Red )
+                    , ( ( 1, 0 ), Red )
+                    , ( ( 0, 1 ), Blue )
                     ]
             }
     in
     describe "pathing tests "
-        [ test "pathAt with path" <|
+        [ test "single point path" <|
+            \() ->
+                Expect.equal ( Blue, [ ( 0, 1 ) ] ) <|
+                    Main.pathAt smallBoardStateWithPath Blue ( 0, 1 )
+        , test "pathAt with path" <|
             \() ->
                 Expect.equal ( Red, [ ( 1, 0 ), ( 0, 0 ) ] ) <|
                     Main.pathAt smallBoardStateWithPath Red ( 0, 0 )
@@ -47,7 +51,7 @@ pathTests =
                     Main.allPaths smallBoardState
         , test "get all paths" <|
             \() ->
-                Expect.equal [ ( Red, [ ( 0, 0 ), ( 1, 0 ) ] ), ( Blue, [ ( 0, 1 ) ] ) ] <|
+                Expect.equal [ ( Red, [ ( 1, 0 ), ( 0, 0 ) ] ), ( Blue, [ ( 0, 1 ) ] ) ] <|
                     Main.allPaths smallBoardStateWithPath
         ]
 

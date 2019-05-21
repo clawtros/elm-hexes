@@ -36,8 +36,22 @@ import Types exposing (..)
 
 
 allPaths : BoardState -> List Path
-allPaths { tiles, size } =
-    []
+allPaths state =
+    Dict.foldl
+        (\location val ( result, visited ) ->
+            if List.filter (\v -> v == location) visited /= [] then
+                ( result, visited )
+
+            else
+                let
+                    path =
+                        pathAt state val location
+                in
+                ( result ++ [ path ], visited ++ Tuple.second path )
+        )
+        ( [], [] )
+        state.tiles
+        |> Tuple.first
 
 
 evalBoard : BoardState -> Side -> Int
@@ -83,7 +97,7 @@ won model =
     pathIsWinning model.cells model.lastPath
 
 
-setTile : BoardState -> Int -> Int -> TileState -> Result String BoardState
+setTile : BoardState -> Int -> Int -> Side -> Result String BoardState
 setTile collection x y state =
     case Dict.get ( x, y ) collection.tiles of
         Just _ ->
@@ -93,7 +107,7 @@ setTile collection x y state =
             Ok <| updateTiles collection <| Dict.insert ( x, y ) state collection.tiles
 
 
-updateTiles : BoardState -> Dict ( Int, Int ) TileState -> BoardState
+updateTiles : BoardState -> Dict ( Int, Int ) Side -> BoardState
 updateTiles state tiles =
     { state | tiles = tiles }
 
@@ -105,7 +119,7 @@ update msg model =
             init
 
         TileClick x y ->
-            case setTile model.tiles x y (Filled model.currentPlayer) of
+            case setTile model.tiles x y model.currentPlayer of
                 Err _ ->
                     ( model, Cmd.none )
 
@@ -138,22 +152,19 @@ colorAt model x y =
     case Dict.get ( x, y ) model.tiles.tiles of
         Just tile ->
             case tile of
-                Filled Red ->
+                Red ->
                     if List.member ( x, y ) <| Tuple.second model.lastPath then
                         "red"
 
                     else
                         "rgba(255, 0, 0, 0.7)"
 
-                Filled Blue ->
+                Blue ->
                     if List.member ( x, y ) <| Tuple.second model.lastPath then
                         "blue"
 
                     else
                         "rgba(0, 0, 255, 0.7)"
-
-                Empty ->
-                    "transparent"
 
         Nothing ->
             "transparent"
@@ -167,7 +178,7 @@ neighbours ( x, y ) =
 
 rightColour : Model -> ( Int, Int ) -> Bool
 rightColour model p =
-    Dict.get p model.tiles.tiles == Just (Filled model.currentPlayer)
+    Dict.get p model.tiles.tiles == Just model.currentPlayer
 
 
 pathAt : BoardState -> Side -> ( Int, Int ) -> Path
@@ -176,7 +187,12 @@ pathAt state side point =
         check leaves_ path =
             case leaves_ of
                 [] ->
-                    path
+                    -- TODO: whaaa?
+                    if path == [] then
+                        [ point ]
+
+                    else
+                        path
 
                 leaf :: leaves ->
                     let
@@ -184,7 +200,7 @@ pathAt state side point =
                             List.filter
                                 (\p ->
                                     Dict.get p state.tiles
-                                        == Just (Filled side)
+                                        == Just side
                                         && not (List.member p path)
                                 )
                             <|
