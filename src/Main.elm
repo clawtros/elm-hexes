@@ -6,7 +6,7 @@ import GameBoard exposing (..)
 import Html exposing (Html, button, div, h1)
 import Html.Attributes exposing (classList)
 import Html.Events
-import Minimax
+import Minimax exposing (IntegerExt(..))
 import Svg
     exposing
         ( Svg
@@ -31,7 +31,6 @@ import Tuple
 import Types exposing (..)
 
 
-
 ---- MODEL ----
 
 
@@ -41,22 +40,41 @@ allPaths state =
         (\location val ( result, visited ) ->
             if List.filter (\v -> v == location) visited /= [] then
                 ( result, visited )
-
             else
                 let
                     path =
                         pathAt state val location
                 in
-                ( result ++ [ path ], visited ++ Tuple.second path )
+                    ( result ++ [ path ], visited ++ Tuple.second path )
         )
         ( [], [] )
         state.tiles
         |> Tuple.first
 
 
-evalBoard : BoardState -> Side -> Int
+showIntegerExt : IntegerExt Int -> String
+showIntegerExt intext =
+    case intext of
+        Pos_Inf ->
+            "∞"
+
+        Neg_Inf ->
+            "-∞"
+
+        Number n ->
+            String.fromInt n
+
+
+evalBoard : BoardState -> Side -> IntegerExt Int
 evalBoard state side =
-    0
+    if
+        List.any (pathIsWinning state.size) <|
+            List.filter (\( s, _ ) -> s == side) <|
+                allPaths state
+    then
+        Pos_Inf
+    else
+        Number 0
 
 
 flip : (a -> b -> c) -> b -> a -> c
@@ -86,10 +104,10 @@ pathIsWinning boardSize ( side, path ) =
                 Red ->
                     Tuple.second
     in
-    List.all (flip List.any path)
-        [ coord >> (==) 1
-        , coord >> (==) boardSize
-        ]
+        List.all (flip List.any path)
+            [ coord >> (==) 1
+            , coord >> (==) boardSize
+            ]
 
 
 won : Model -> Bool
@@ -128,20 +146,18 @@ update msg model =
                         newModel =
                             updatePath { model | tiles = tiles } ( x, y )
                     in
-                    if won newModel then
-                        ( newModel, Cmd.none )
-
-                    else
-                        ( { newModel
-                            | currentPlayer =
-                                if model.currentPlayer == Red then
-                                    Blue
-
-                                else
-                                    Red
-                          }
-                        , Cmd.none
-                        )
+                        if won newModel then
+                            ( newModel, Cmd.none )
+                        else
+                            ( { newModel
+                                | currentPlayer =
+                                    if model.currentPlayer == Red then
+                                        Blue
+                                    else
+                                        Red
+                              }
+                            , Cmd.none
+                            )
 
         SetCells n ->
             ( { model | cells = n }, Cmd.none )
@@ -155,14 +171,12 @@ colorAt model x y =
                 Red ->
                     if List.member ( x, y ) <| Tuple.second model.lastPath then
                         "red"
-
                     else
                         "rgba(255, 0, 0, 0.7)"
 
                 Blue ->
                     if List.member ( x, y ) <| Tuple.second model.lastPath then
                         "blue"
-
                     else
                         "rgba(0, 0, 255, 0.7)"
 
@@ -190,7 +204,6 @@ pathAt state side point =
                     -- TODO: whaaa?
                     if path == [] then
                         [ point ]
-
                     else
                         path
 
@@ -206,9 +219,9 @@ pathAt state side point =
                             <|
                                 neighbours leaf
                     in
-                    check (leaves ++ newLeaves) <| path ++ newLeaves
+                        check (leaves ++ newLeaves) <| path ++ newLeaves
     in
-    ( side, check [ point ] [] )
+        ( side, check [ point ] [] )
 
 
 updatePath : Model -> ( Int, Int ) -> Model
@@ -237,34 +250,39 @@ view model =
         ( overlay, moveDisplay ) =
             if won model then
                 ( winningScreen model.currentPlayer, emptyHtml )
-
             else
                 ( emptyHtml
                 , div []
-                    [ text <| sideToString model.currentPlayer ++ "'s move"
-                    , text <| String.fromInt (evalBoard model.tiles model.currentPlayer)
+                    [ div [] [ text <| sideToString model.currentPlayer ++ "'s move" ]
+                    , div [] [ text <| showIntegerExt <| evalBoard model.tiles model.currentPlayer ]
+                    , div []
+                        [ text <|
+                            String.fromInt <|
+                                List.length <|
+                                    allPaths model.tiles
+                        ]
                     ]
                 )
     in
-    div [ class "container" ]
-        [ overlay
-        , div [] <|
-            List.map
-                (\n ->
-                    div
-                        [ classList
-                            [ ( "cell-sel", True )
-                            , ( "active", model.cells == n )
+        div [ class "container" ]
+            [ overlay
+            , div [] <|
+                List.map
+                    (\n ->
+                        div
+                            [ classList
+                                [ ( "cell-sel", True )
+                                , ( "active", model.cells == n )
+                                ]
+                            , Html.Events.onClick <| SetCells n
                             ]
-                        , Html.Events.onClick <| SetCells n
-                        ]
-                        [ text <| String.fromInt n ]
-                )
-            <|
-                List.range 7 19
-        , hexGrid (colorAt model) model.cells
-        , div [ class "stats" ] [ moveDisplay ]
-        ]
+                            [ text <| String.fromInt n ]
+                    )
+                <|
+                    List.range 7 19
+            , hexGrid (colorAt model) model.cells
+            , div [ class "stats" ] [ moveDisplay ]
+            ]
 
 
 main : Program () Model Msg

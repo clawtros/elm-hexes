@@ -4,28 +4,51 @@ import Dict exposing (Dict)
 import Expect
 import Fuzz exposing (..)
 import GameBoard
-import Main exposing (allPaths, pathAt)
+import Main exposing (allPaths, pathAt, evalBoard)
 import String
 import Test exposing (..)
 import Types exposing (..)
+import Minimax exposing (IntegerExt(..))
+
+
+smallBoardState =
+    { size = 2, tiles = Dict.fromList [] }
+
+
+smallBoardStateWithPath =
+    { size = 2
+    , tiles =
+        Dict.fromList
+            [ ( ( 0, 0 ), Red )
+            , ( ( 1, 0 ), Red )
+            , ( ( 0, 1 ), Blue )
+            ]
+    }
+
+
+smallBoardStateWithRedWinning =
+    { size = 1
+    , tiles =
+        Dict.fromList
+            [ ( ( 0, 0 ), Red )
+            , ( ( 0, 1 ), Red )
+            , ( ( 1, 0 ), Blue )
+            ]
+    }
+
+
+aiTests : Test
+aiTests =
+    describe "test ai / board scoring"
+        [ test "eval winning board" <|
+            \() ->
+                Expect.equal Pos_Inf <|
+                    evalBoard smallBoardStateWithRedWinning Red
+        ]
 
 
 pathTests : Test
 pathTests =
-    let
-        smallBoardState =
-            { size = 2, tiles = Dict.fromList [] }
-
-        smallBoardStateWithPath =
-            { size = 2
-            , tiles =
-                Dict.fromList
-                    [ ( ( 0, 0 ), Red )
-                    , ( ( 1, 0 ), Red )
-                    , ( ( 0, 1 ), Blue )
-                    ]
-            }
-    in
     describe "pathing tests "
         [ test "single point path" <|
             \() ->
@@ -79,4 +102,5 @@ all =
     describe "all tests"
         [ tupleSquareTests
         , pathTests
+        , aiTests
         ]
