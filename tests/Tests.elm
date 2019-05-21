@@ -41,6 +41,14 @@ pathTests =
                 Expect.equal False <|
                     Main.pathIsWinning 2
                         ( Blue, [ ( 1, 0 ), ( 0, 1 ), ( 1, 2 ) ] )
+        , test "no paths should be empty list" <|
+            \() ->
+                Expect.equal [] <|
+                    Main.allPaths smallBoardState
+        , test "get all paths" <|
+            \() ->
+                Expect.equal [ ( Red, [ ( 0, 0 ), ( 1, 0 ) ] ), ( Blue, [ ( 0, 1 ) ] ) ] <|
+                    Main.allPaths smallBoardStateWithPath
         ]
 
 
@@ -64,7 +72,7 @@ tupleSquareTests =
 
 all : Test
 all =
-    describe "GameBoard tests"
+    describe "all tests"
         [ tupleSquareTests
         , pathTests
         ]

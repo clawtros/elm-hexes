@@ -1,4 +1,4 @@
-module Main exposing (colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, rightColour, setTile, update, updatePath, updateTiles, view, winningScreen, won)
+module Main exposing (allPaths, colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, rightColour, setTile, update, updatePath, updateTiles, view, winningScreen, won)
 
 import Browser
 import Dict exposing (Dict)
@@ -33,6 +33,11 @@ import Types exposing (..)
 
 
 ---- MODEL ----
+
+
+allPaths : BoardState -> List Path
+allPaths { tiles, size } =
+    []
 
 
 evalBoard : BoardState -> Side -> Int

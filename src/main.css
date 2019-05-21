@@ -4,8 +4,8 @@ body {
 }
 
 @keyframes place {
-    from: {transform: scale(5)}
-    to: {transform: scale(1)}
+    from {transform: scale(5)}
+    to {transform: scale(1)}
 }
 
 .hex {
@@ -25,7 +25,6 @@ body {
     width: 960px;
     max-width: 100%;
 }
-
 
 .cell-sel {
     display: inline-block;
@@ -65,5 +64,5 @@ body {
 }
 
 .popup-contents button {
-    
+    background-color: #333;
 }
