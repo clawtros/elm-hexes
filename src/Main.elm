@@ -1,4 +1,4 @@
-module Main exposing (allPaths, colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, rightColour, setTile, update, updatePath, updateTiles, view, winningScreen, won, bestMove)
+module Main exposing (allPaths, colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, setTile, update, updatePath, updateTiles, view, winningScreen, won, bestMove)
 
 import Browser
 import Dict exposing (Dict)
@@ -111,8 +111,8 @@ bestMove state side =
         possibleMovesFunc node =
             tupleSquare node.position.size
                 |> List.map
-                    (\t ->
-                        ( t
+                    (\( a, b ) ->
+                        ( ( a + 1, b + 1 )
                         , if remainderBy node.depth 2 == 0 then
                             side
                           else
@@ -194,16 +194,36 @@ update msg model =
                     let
                         newModel =
                             updatePath { model | boardState = tiles } ( x, y )
+
+                        newerModel =
+                            if not model.vsAi then
+                                { newModel | currentPlayer = notSide model.currentPlayer }
+                            else
+                                let
+                                    { move } =
+                                        bestMove model.boardState Blue
+                                in
+                                    case move of
+                                        Just ( ( x_, y_ ), _ ) ->
+                                            let
+                                                _ = Debug.log "ACK" (x_, y_)
+                                                newState =
+                                                    updateTiles newModel.boardState <| Dict.insert ( x_, y_ ) Blue newModel.boardState.tiles
+                                            in
+                                                { model | boardState = newState }
+
+                                        Nothing ->
+                                            newModel
                     in
-                        ( { newModel | currentPlayer = notSide model.currentPlayer }, Cmd.none )
+                        ( newerModel, Cmd.none )
 
         SetCells n ->
             ( { model | cells = n }, Cmd.none )
 
 
-colorAt : Model -> Int -> Int -> String
-colorAt model x y =
-    case Dict.get ( x, y ) model.boardState.tiles of
+colorAt : Dict ( Int, Int ) Side -> Int -> Int -> String
+colorAt tiles x y =
+    case Dict.get ( x, y ) tiles of
         Just tile ->
             case tile of
                 Red ->
@@ -220,11 +240,6 @@ neighbours : ( Int, Int ) -> List ( Int, Int )
 neighbours ( x, y ) =
     [ ( 0, -1 ), ( 1, -1 ), ( -1, 0 ), ( 1, 0 ), ( -1, 1 ), ( 0, 1 ) ]
         |> List.map (\( xoff, yoff ) -> ( x + xoff, y + yoff ))
-
-
-rightColour : Model -> ( Int, Int ) -> Bool
-rightColour model p =
-    Dict.get p model.boardState.tiles == Just model.currentPlayer
 
 
 pathAt : BoardState -> Side -> ( Int, Int ) -> Path
@@ -315,7 +330,7 @@ view model =
                     )
                 <|
                     List.range 7 19
-            , hexGrid (colorAt model) model.cells
+            , hexGrid (colorAt <| Debug.log "!!!" model.boardState.tiles) model.boardState.size
             , div [ class "stats" ] [ moveDisplay ]
             ]
 

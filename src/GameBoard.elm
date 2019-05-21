@@ -189,7 +189,7 @@ hexGrid colorize cellsAcross =
                             <|
                                 [ hex
                                     tilesize
-                                    [ fill <| colorize x y
+                                    [ fill <| Debug.log " ? " <| colorize x y
                                     , Svg.Events.onClick <|
                                         TileClick x y
                                     ]
