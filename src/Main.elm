@@ -1,4 +1,4 @@
-module Main exposing (allPaths, colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, setTile, update, updatePath, updateTiles, view, winningScreen, won, bestMove)
+module Main exposing (allPaths, colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, setTile, update, updateTiles, view, winningScreen, won, bestMove)
 
 import Browser
 import Dict exposing (Dict)
@@ -133,10 +133,8 @@ init : ( Model, Cmd Msg )
 init =
     ( { currentPlayer = Red
       , boardState = { size = 4, tiles = Dict.empty }
-      , lastPath = ( Red, [] )
       , cells = 4
       , vsAi = True
-      , thinking = False
       }
     , Cmd.none
     )
@@ -159,9 +157,12 @@ pathIsWinning boardSize ( side, path ) =
             ]
 
 
-won : Model -> Bool
+won : Model -> Maybe Side
 won model =
-    pathIsWinning model.cells model.lastPath
+    allPaths model.boardState
+        |> List.filter (pathIsWinning model.cells)
+        |> List.head
+        |> Maybe.map Tuple.first
 
 
 setTile : BoardState -> Int -> Int -> Side -> Result String BoardState
@@ -193,7 +194,7 @@ update msg model =
                 Ok tiles ->
                     let
                         newModel =
-                            updatePath { model | boardState = tiles } ( x, y )
+                            { model | boardState = updateTiles model.boardState tiles.tiles }
 
                         newerModel =
                             if not model.vsAi then
@@ -206,7 +207,9 @@ update msg model =
                                     case move of
                                         Just ( ( x_, y_ ), _ ) ->
                                             let
-                                                _ = Debug.log "ACK" (x_, y_)
+                                                _ =
+                                                    Debug.log "ACK" ( x_, y_ )
+
                                                 newState =
                                                     updateTiles newModel.boardState <| Dict.insert ( x_, y_ ) Blue newModel.boardState.tiles
                                             in
@@ -271,11 +274,6 @@ pathAt state side point =
         ( side, check [ point ] [] )
 
 
-updatePath : Model -> ( Int, Int ) -> Model
-updatePath model point =
-    { model | lastPath = pathAt model.boardState model.currentPlayer point }
-
-
 emptyHtml : Html msg
 emptyHtml =
     text ""
@@ -298,21 +296,23 @@ view model =
             Debug.log "!" model.boardState
 
         ( overlay, moveDisplay ) =
-            if won model then
-                ( winningScreen model.currentPlayer, emptyHtml )
-            else
-                ( emptyHtml
-                , div []
-                    [ div [] [ text <| sideToString model.currentPlayer ++ "'s move" ]
-                    , div [] [ text <| showIntegerExt <| evalBoard model.boardState model.currentPlayer ]
+            case won model of
+                Just side ->
+                    ( winningScreen side, emptyHtml )
+
+                Nothing ->
+                    ( emptyHtml
                     , div []
-                        [ text <|
-                            String.fromInt <|
-                                List.length <|
-                                    allPaths model.boardState
+                        [ div [] [ text <| sideToString model.currentPlayer ++ "'s move" ]
+                        , div [] [ text <| showIntegerExt <| evalBoard model.boardState model.currentPlayer ]
+                        , div []
+                            [ text <|
+                                String.fromInt <|
+                                    List.length <|
+                                        allPaths model.boardState
+                            ]
                         ]
-                    ]
-                )
+                    )
     in
         div [ class "container" ]
             [ overlay
