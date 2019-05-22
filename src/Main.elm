@@ -32,6 +32,10 @@ import Tuple
 import Types exposing (..)
 
 
+recursionDepth =
+    2
+
+
 
 ---- MODEL ----
 
@@ -55,11 +59,39 @@ allPaths state =
         |> Tuple.first
 
 
+centerDistance : Int -> (Int, Int) -> Float
+centerDistance size (x, y) =
+    let hs = (toFloat size) / 2
+        dx = toFloat x - hs
+        dy = toFloat y - hs
+    in
+        dx * dx + dy * dy
+           
+
 evalBoard : BoardState -> Side -> Int
 evalBoard state side =
     let
         paths =
             allPaths state
+
+        coord =
+            case side of
+                Blue ->
+                    Tuple.first
+
+                Red ->
+                    Tuple.second
+
+        yourCells =
+            Dict.toList state.tiles
+                |> List.filterMap
+                    (\( p, s ) ->
+                        if s == side then
+                            Just p
+
+                        else
+                            Nothing
+                    )
 
         yourPaths =
             List.filter (\( s, _ ) -> s == side) paths
@@ -76,9 +108,11 @@ evalBoard state side =
                     0
     in
     winningScore
-        + (Maybe.withDefault 0 <|
-            List.maximum (List.map (Tuple.second >> List.length) yourPaths)
-          )
+        + List.length
+            (List.range 0 (state.size - 1)
+                |> List.filter (\n -> List.member n (List.map coord yourCells))
+            )
+            - (List.sum <| List.map (centerDistance state.size >> round) yourCells)
 
 
 notSide : Side -> Side
@@ -91,42 +125,12 @@ notSide side =
             Red
 
 
-possibleMovesFunc : Side -> Node BoardState ( ( Int, Int ), Side ) -> List ( ( Int, Int ), Side )
-possibleMovesFunc side node =
-    let
-        t_ =
-            Debug.log "node " node
-
-        nn_ =
-            Debug.log " b " <| GameBoard.showBoardState t_.position
-
-        nnn_ =
-            Debug.log " h " <| evalBoard t_.position Red
-    in
-    tupleSquare (node.position.size - 1)
-        |> List.map
-            (\( a, b ) ->
-                ( ( a, b )
-                , if node.nodeType == Min then
-                    notSide side
-
-                  else
-                    side
-                )
-            )
-        |> List.filter
-            (\( p, _ ) ->
-                not
-                    (List.member p <|
-                        Dict.keys node.position.tiles
-                    )
-            )
-
-
 addMove : BoardState -> ( ( Int, Int ), Side ) -> BoardState
 addMove state ( p, s ) =
     { state | tiles = Dict.insert p s state.tiles }
 
+
+debug s a = a
 
 bestMove : BoardState -> Side -> Node BoardState ( ( Int, Int ), Side )
 bestMove state side =
@@ -138,9 +142,40 @@ bestMove state side =
         valueFunc : Node BoardState ( ( Int, Int ), Side ) -> Int
         valueFunc node =
             evalBoard node.position side
-                |> Debug.log "eval"
+                |> debug "eval"
+
+        possibleMovesFunc : Node BoardState ( ( Int, Int ), Side ) -> List ( ( Int, Int ), Side )
+        possibleMovesFunc node =
+            let
+                t_ =
+                    debug "node " node
+
+                nn_ =
+                    debug "b" <| GameBoard.showBoardState t_.position
+
+                nnn_ =
+                    debug " h " <| evalBoard t_.position Red
+            in
+            tupleSquare (node.position.size - 1)
+                |> List.map
+                    (\( a, b ) ->
+                        ( ( a, b )
+                        , if node.nodeType == Min then
+                            notSide side
+
+                          else
+                            side
+                        )
+                    )
+                |> List.filter
+                    (\( p, _ ) ->
+                        not
+                            (List.member p <|
+                                Dict.keys node.position.tiles
+                            )
+                    )
     in
-    Minimax.minimax moveFunc valueFunc (possibleMovesFunc side) state 3
+    Minimax.minimax moveFunc valueFunc possibleMovesFunc state recursionDepth
 
 
 flip : (a -> b -> c) -> b -> a -> c

@@ -4,7 +4,7 @@ import Dict exposing (Dict)
 import Expect
 import Fuzz exposing (..)
 import GameBoard
-import Main exposing (allPaths, bestMove, evalBoard, pathAt, won)
+import Main exposing (addMove, allPaths, bestMove, evalBoard, pathAt, won)
 import Minimax exposing (IntegerExt(..), Node)
 import String
 import Test exposing (..)
@@ -52,16 +52,14 @@ smallBoardStateWithNearWin =
 aiTests : Test
 aiTests =
     describe "test ai / board scoring"
-        [ test "eval next move" <|
+        [ test "can win" <|
             \() ->
                 let
-                    { move } =
-                        bestMove smallBoardStateWithNearWin Blue
-
-                    _ =
-                        Debug.log "hm" <| GameBoard.showBoardState smallBoardStateWithNearWin
+                    move =
+                        Maybe.withDefault ( ( -1, -1 ), Red )
+                            (bestMove smallBoardStateWithNearWin Blue).move
                 in
-                Expect.equal (Just ( ( 1, 1 ), Blue )) move
+                Expect.equal (Just Blue) <| won <| addMove smallBoardStateWithNearWin move
         , test "near win isn't actually a win" <|
             \() -> Expect.equal Nothing <| won smallBoardStateWithNearWin
         ]
