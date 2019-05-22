@@ -1,4 +1,4 @@
-module Main exposing (allPaths, colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, setTile, update, updateTiles, view, winningScreen, won, bestMove)
+module Main exposing (allPaths, bestMove, colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, setTile, update, updateTiles, view, winningScreen, won)
 
 import Browser
 import Dict exposing (Dict)
@@ -27,9 +27,10 @@ import Svg.Attributes
         , version
         , viewBox
         )
+import Task exposing (Task)
 import Tuple
 import Types exposing (..)
-import Task exposing (Task)
+
 
 
 ---- MODEL ----
@@ -41,12 +42,13 @@ allPaths state =
         (\location val ( result, visited ) ->
             if List.filter (\v -> v == location) visited /= [] then
                 ( result, visited )
+
             else
                 let
                     path =
                         pathAt state val location
                 in
-                    ( result ++ [ path ], visited ++ Tuple.second path )
+                ( result ++ [ path ], visited ++ Tuple.second path )
         )
         ( [], [] )
         state.tiles
@@ -74,6 +76,7 @@ evalBoard state side =
                 allPaths state
     then
         Pos_Inf
+
     else
         Number 0
 
@@ -115,13 +118,28 @@ bestMove state side =
                         ( ( a, b )
                         , if remainderBy node.depth 2 == 1 then
                             side
+
                           else
                             notSide side
                         )
                     )
-                |> List.filter (\( p, _ ) -> not (List.member p <| Dict.keys node.position.tiles))
+                |> List.filter
+                    (\( p, _ ) ->
+                        not
+                            (List.member p <|
+                                Debug.log "taken" <|
+                                    Dict.keys node.position.tiles
+                                        ++ (Maybe.withDefault [] <|
+                                                Maybe.map
+                                                    (Tuple.first
+                                                        >> List.singleton
+                                                    )
+                                                    node.move
+                                           )
+                            )
+                    )
     in
-        Minimax.minimax moveFunc valueFunc possibleMovesFunc state 6
+    Minimax.minimax moveFunc valueFunc possibleMovesFunc state 1
 
 
 flip : (a -> b -> c) -> b -> a -> c
@@ -151,10 +169,10 @@ pathIsWinning boardSize ( side, path ) =
                 Red ->
                     Tuple.second
     in
-        List.all (flip List.any path)
-            [ coord >> (==) 1
-            , coord >> (==) boardSize
-            ]
+    List.all (flip List.any path)
+        [ coord >> (==) 0
+        , coord >> (==) (boardSize - 1)
+        ]
 
 
 won : Model -> Maybe Side
@@ -199,26 +217,24 @@ update msg model =
                         newerModel =
                             if not model.vsAi then
                                 { newModel | currentPlayer = notSide model.currentPlayer }
+
                             else
                                 let
                                     { move } =
-                                        bestMove model.boardState Blue
+                                        bestMove newModel.boardState Blue
                                 in
-                                    case move of
-                                        Just ( ( x_, y_ ), _ ) ->
-                                            let
-                                                _ =
-                                                    Debug.log "ACK" ( x_, y_ )
+                                case move of
+                                    Just ( ( x_, y_ ), _ ) ->
+                                        let
+                                            newState =
+                                                updateTiles newModel.boardState <| Dict.insert ( x_, y_ ) Blue newModel.boardState.tiles
+                                        in
+                                        { model | boardState = newState }
 
-                                                newState =
-                                                    updateTiles newModel.boardState <| Dict.insert ( x_, y_ ) Blue newModel.boardState.tiles
-                                            in
-                                                { model | boardState = newState }
-
-                                        Nothing ->
-                                            newModel
+                                    Nothing ->
+                                        newModel
                     in
-                        ( newerModel, Cmd.none )
+                    ( newerModel, Cmd.none )
 
         SetCells n ->
             ( { model | cells = n }, Cmd.none )
@@ -254,6 +270,7 @@ pathAt state side point =
                     -- TODO: whaaa?
                     if path == [] then
                         [ point ]
+
                     else
                         path
 
@@ -269,9 +286,9 @@ pathAt state side point =
                             <|
                                 neighbours leaf
                     in
-                        check (leaves ++ newLeaves) <| path ++ newLeaves
+                    check (leaves ++ newLeaves) <| path ++ newLeaves
     in
-        ( side, check [ point ] [] )
+    ( side, check [ point ] [] )
 
 
 emptyHtml : Html msg
@@ -304,7 +321,7 @@ view model =
                     ( emptyHtml
                     , div []
                         [ div [] [ text <| sideToString model.currentPlayer ++ "'s move" ]
-                        , div [] [ text <| showIntegerExt <| evalBoard model.boardState model.currentPlayer ]
+                        , div [] [ text <| showIntegerExt <| evalBoard model.boardState <| notSide model.currentPlayer ]
                         , div []
                             [ text <|
                                 String.fromInt <|
@@ -314,25 +331,25 @@ view model =
                         ]
                     )
     in
-        div [ class "container" ]
-            [ overlay
-            , div [] <|
-                List.map
-                    (\n ->
-                        div
-                            [ classList
-                                [ ( "cell-sel", True )
-                                , ( "active", model.cells == n )
-                                ]
-                            , Html.Events.onClick <| SetCells n
+    div [ class "container" ]
+        [ overlay
+        , div [] <|
+            List.map
+                (\n ->
+                    div
+                        [ classList
+                            [ ( "cell-sel", True )
+                            , ( "active", model.cells == n )
                             ]
-                            [ text <| String.fromInt n ]
-                    )
-                <|
-                    List.range 7 19
-            , hexGrid (colorAt <| Debug.log "!!!" model.boardState.tiles) model.boardState.size
-            , div [ class "stats" ] [ moveDisplay ]
-            ]
+                        , Html.Events.onClick <| SetCells n
+                        ]
+                        [ text <| String.fromInt n ]
+                )
+            <|
+                List.range 7 19
+        , hexGrid (colorAt <| Debug.log "!!!" model.boardState.tiles) model.boardState.size
+        , div [ class "stats" ] [ moveDisplay ]
+        ]
 
 
 main : Program () Model Msg
