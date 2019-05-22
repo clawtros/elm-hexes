@@ -33,22 +33,22 @@ sideToString side =
 borders : Int -> Int -> Int -> List Border
 borders cellsAcross x y =
     List.concat
-        [ if y == 1 then
+        [ if y == 0 then
             [ Border Red Up ]
 
           else
             []
-        , if x == cellsAcross then
+        , if x == cellsAcross - 1 then
             [ Border Blue Right ]
 
           else
             []
-        , if y == cellsAcross then
+        , if y == cellsAcross - 1 then
             [ Border Red Down ]
 
           else
             []
-        , if x == 1 then
+        , if x == 0 then
             [ Border Blue Left ]
 
           else
@@ -139,8 +139,14 @@ chevron size border =
 
 
 rhombusTransform : Float -> Int -> Int -> ( Float, Float )
-rhombusTransform h x y =
+rhombusTransform h x_ y_ =
     let
+        x =
+            x_ + 1
+
+        y =
+            y_ + 1
+
         xmod =
             h * sqrt 3 / 2
 
@@ -175,10 +181,10 @@ hexGrid colorize cellsAcross =
         ( height, width ) =
             rhombusTransform tilesize cellsAcross cellsAcross
     in
-    List.range 1 cellsAcross
+    List.range 0 (cellsAcross - 1)
         |> List.concatMap
             (\y ->
-                List.range 1 cellsAcross
+                List.range 0 (cellsAcross - 1)
                     |> List.map
                         (\x ->
                             g

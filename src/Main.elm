@@ -112,8 +112,8 @@ bestMove state side =
             tupleSquare node.position.size
                 |> List.map
                     (\( a, b ) ->
-                        ( ( a + 1, b + 1 )
-                        , if remainderBy node.depth 2 == 0 then
+                        ( ( a, b )
+                        , if remainderBy node.depth 2 == 1 then
                             side
                           else
                             notSide side
