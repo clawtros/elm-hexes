@@ -6,7 +6,7 @@ import GameBoard exposing (..)
 import Html exposing (Html, button, div, h1)
 import Html.Attributes exposing (classList)
 import Html.Events
-import Minimax exposing (IntegerExt(..), Node)
+import Minimax exposing (IntegerExt(..), Node, NodeType(..))
 import Svg
     exposing
         ( Svg
@@ -111,17 +111,24 @@ bestMove state side =
     let
         moveFunc : Node BoardState ( ( Int, Int ), Side ) -> ( ( Int, Int ), Side ) -> BoardState
         moveFunc node taken =
-            node.position
+            let
+                bs =
+                    node.position
+
+                ( pos, s ) =
+                    taken
+            in
+            { bs | tiles = Dict.insert pos s node.position.tiles }
 
         valueFunc : Node BoardState ( ( Int, Int ), Side ) -> Int
         valueFunc node =
             evalBoard node.position side
                 |> (*)
-                    (if remainderBy node.depth 2 == 0 then
-                        1
+                    (if node.nodeType == Min then
+                        -1
 
                      else
-                        -1
+                        1
                     )
 
         possibleMovesFunc : Node BoardState ( ( Int, Int ), Side ) -> List ( ( Int, Int ), Side )
@@ -130,7 +137,11 @@ bestMove state side =
                 |> List.map
                     (\( a, b ) ->
                         ( ( a, b )
-                        , side
+                        , if node.nodeType == Min then
+                            notSide side
+
+                          else
+                            side
                         )
                     )
                 |> List.filter
