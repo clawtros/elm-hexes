@@ -4,11 +4,11 @@ import Dict exposing (Dict)
 import Expect
 import Fuzz exposing (..)
 import GameBoard
-import Main exposing (allPaths, pathAt, evalBoard, bestMove)
+import Main exposing (allPaths, bestMove, evalBoard, pathAt, won)
+import Minimax exposing (IntegerExt(..), Node)
 import String
 import Test exposing (..)
 import Types exposing (..)
-import Minimax exposing (IntegerExt(..), Node)
 
 
 smallBoardState =
@@ -37,14 +37,14 @@ smallBoardStateWithRedWinning =
     }
 
 
-smallBoardStateWithNearRedWin =
+smallBoardStateWithNearWin =
     { size = 3
     , tiles =
         Dict.fromList
             [ ( ( 0, 0 ), Red )
             , ( ( 0, 1 ), Red )
-            , ( ( 1, 0 ), Blue )
-            , ( ( 1, 2 ), Blue )
+            , ( ( 0, 2 ), Blue )
+            , ( ( 2, 2 ), Blue )
             ]
     }
 
@@ -52,17 +52,18 @@ smallBoardStateWithNearRedWin =
 aiTests : Test
 aiTests =
     describe "test ai / board scoring"
-        [ test "eval winning board" <|
-            \() ->
-                Expect.equal 10001 <|
-                    evalBoard smallBoardStateWithRedWinning Red
-        , test "eval next move" <|
+        [ test "eval next move" <|
             \() ->
                 let
                     { move } =
-                        bestMove smallBoardStateWithRedWinning Red
+                        bestMove smallBoardStateWithNearWin Blue
+
+                    _ =
+                        Debug.log "hm" <| GameBoard.showBoardState smallBoardStateWithNearWin
                 in
-                    Expect.equal (Just ( ( 0, 2 ), Red )) move
+                Expect.equal (Just ( ( 1, 1 ), Blue )) move
+        , test "near win isn't actually a win" <|
+            \() -> Expect.equal Nothing <| won smallBoardStateWithNearWin
         ]
 
 
@@ -95,6 +96,20 @@ pathTests =
             \() ->
                 Expect.equal [ ( Red, [ ( 1, 0 ), ( 0, 0 ) ] ), ( Blue, [ ( 0, 1 ) ] ) ] <|
                     Main.allPaths smallBoardStateWithPath
+        , test "won " <|
+            \() ->
+                Expect.equal (Just Red) <|
+                    won
+                        { size = 3
+                        , tiles =
+                            Dict.fromList
+                                [ ( ( 0, 0 ), Red )
+                                , ( ( 0, 1 ), Red )
+                                , ( ( 0, 2 ), Red )
+                                , ( ( 1, 0 ), Blue )
+                                , ( ( 1, 2 ), Blue )
+                                ]
+                        }
         ]
 
 

@@ -40,6 +40,5 @@ type alias Path =
 type alias Model =
     { currentPlayer : Side
     , boardState : BoardState
-    , cells : Int
     , vsAi : Bool
     }

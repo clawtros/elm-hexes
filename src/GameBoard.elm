@@ -1,5 +1,6 @@
-module GameBoard exposing (borders, chevron, chevronPoints, drawBorders, hex, hexGrid, hexPoints, rhombusTransform, sideToString, tupleSquare)
+module GameBoard exposing (borders, chevron, chevronPoints, drawBorders, hex, hexGrid, hexPoints, rhombusTransform, sideToString, tupleSquare, showBoardState)
 
+import Dict exposing (Dict)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Svg.Events exposing (onClick)
@@ -13,6 +14,31 @@ tupleSquare size =
             (\y ->
                 List.map (\x -> ( x, y )) (List.range 0 size)
             )
+
+
+showCellState : Maybe Side -> String
+showCellState side_ =
+    case side_ of
+        Just s ->
+            case s of
+                Red ->
+                    "R"
+
+                Blue ->
+                    "B"
+
+        Nothing ->
+            " _ "
+
+
+showBoardState { size, tiles } =
+    List.range 0 (size - 1)
+        |> List.map
+            (\y ->
+                List.map (\x -> Dict.get ( x, y ) tiles |> showCellState) (List.range 0 (size - 1))
+            )
+           |> List.map (String.join " ")
+           |> String.join "\n"
 
 
 tupleString : (a -> String) -> ( a, a ) -> String

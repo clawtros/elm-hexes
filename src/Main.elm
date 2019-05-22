@@ -1,4 +1,4 @@
-module Main exposing (allPaths, bestMove, colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, setTile, update, updateTiles, view, winningScreen, won)
+module Main exposing (addMove, allPaths, bestMove, colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, setTile, update, updateTiles, view, winningScreen, won)
 
 import Browser
 import Dict exposing (Dict)
@@ -55,19 +55,6 @@ allPaths state =
         |> Tuple.first
 
 
-showIntegerExt : IntegerExt Int -> String
-showIntegerExt intext =
-    case intext of
-        Pos_Inf ->
-            "∞"
-
-        Neg_Inf ->
-            "-∞"
-
-        Number n ->
-            String.fromInt n
-
-
 evalBoard : BoardState -> Side -> Int
 evalBoard state side =
     let
@@ -75,25 +62,23 @@ evalBoard state side =
             allPaths state
 
         yourPaths =
-            Debug.log "YP" <|
-                List.filter (\( s, _ ) -> s == side) paths
+            List.filter (\( s, _ ) -> s == side) paths
 
         winningPaths =
             List.filter (pathIsWinning state.size) paths
 
         winningScore =
             case winningPaths of
-                ( side_, _ ) :: rest ->
-                    if side_ == side then
-                        10000
-
-                    else
-                        -10000
+                ( side_, _ ) :: _ ->
+                    10000
 
                 _ ->
                     0
     in
-    winningScore + List.length yourPaths
+    winningScore
+        + (Maybe.withDefault 0 <|
+            List.maximum (List.map (Tuple.second >> List.length) yourPaths)
+          )
 
 
 notSide : Side -> Side
@@ -106,53 +91,56 @@ notSide side =
             Red
 
 
+possibleMovesFunc : Side -> Node BoardState ( ( Int, Int ), Side ) -> List ( ( Int, Int ), Side )
+possibleMovesFunc side node =
+    let
+        t_ =
+            Debug.log "node " node
+
+        nn_ =
+            Debug.log " b " <| GameBoard.showBoardState t_.position
+
+        nnn_ =
+            Debug.log " h " <| evalBoard t_.position Red
+    in
+    tupleSquare (node.position.size - 1)
+        |> List.map
+            (\( a, b ) ->
+                ( ( a, b )
+                , if node.nodeType == Min then
+                    notSide side
+
+                  else
+                    side
+                )
+            )
+        |> List.filter
+            (\( p, _ ) ->
+                not
+                    (List.member p <|
+                        Dict.keys node.position.tiles
+                    )
+            )
+
+
+addMove : BoardState -> ( ( Int, Int ), Side ) -> BoardState
+addMove state ( p, s ) =
+    { state | tiles = Dict.insert p s state.tiles }
+
+
 bestMove : BoardState -> Side -> Node BoardState ( ( Int, Int ), Side )
 bestMove state side =
     let
         moveFunc : Node BoardState ( ( Int, Int ), Side ) -> ( ( Int, Int ), Side ) -> BoardState
         moveFunc node taken =
-            let
-                bs =
-                    node.position
-
-                ( pos, s ) =
-                    taken
-            in
-            { bs | tiles = Dict.insert pos s node.position.tiles }
+            addMove node.position taken
 
         valueFunc : Node BoardState ( ( Int, Int ), Side ) -> Int
         valueFunc node =
             evalBoard node.position side
-                |> (*)
-                    (if node.nodeType == Min then
-                        -1
-
-                     else
-                        1
-                    )
-
-        possibleMovesFunc : Node BoardState ( ( Int, Int ), Side ) -> List ( ( Int, Int ), Side )
-        possibleMovesFunc node =
-            tupleSquare (node.position.size - 1)
-                |> List.map
-                    (\( a, b ) ->
-                        ( ( a, b )
-                        , if node.nodeType == Min then
-                            notSide side
-
-                          else
-                            side
-                        )
-                    )
-                |> List.filter
-                    (\( p, _ ) ->
-                        not
-                            (List.member p <|
-                                Dict.keys node.position.tiles
-                            )
-                    )
+                |> Debug.log "eval"
     in
-    Minimax.minimax moveFunc valueFunc possibleMovesFunc state 2
+    Minimax.minimax moveFunc valueFunc (possibleMovesFunc side) state 3
 
 
 flip : (a -> b -> c) -> b -> a -> c
@@ -164,7 +152,6 @@ init : ( Model, Cmd Msg )
 init =
     ( { currentPlayer = Red
       , boardState = { size = 4, tiles = Dict.empty }
-      , cells = 4
       , vsAi = True
       }
     , Cmd.none
@@ -188,10 +175,10 @@ pathIsWinning boardSize ( side, path ) =
         ]
 
 
-won : Model -> Maybe Side
+won : BoardState -> Maybe Side
 won model =
-    allPaths model.boardState
-        |> List.filter (pathIsWinning model.cells)
+    allPaths model
+        |> List.filter (pathIsWinning model.size)
         |> List.head
         |> Maybe.map Tuple.first
 
@@ -234,7 +221,7 @@ update msg model =
                             else
                                 let
                                     { move } =
-                                        Debug.log "move" <| bestMove newModel.boardState Blue
+                                        bestMove newModel.boardState Blue
                                 in
                                 case move of
                                     Just ( ( x_, y_ ), _ ) ->
@@ -252,7 +239,14 @@ update msg model =
                     ( newerModel, Cmd.none )
 
         SetCells n ->
-            ( { model | cells = n }, Cmd.none )
+            let
+                boardState =
+                    model.boardState
+
+                newBoardState =
+                    { boardState | size = n }
+            in
+            ( { model | boardState = newBoardState }, Cmd.none )
 
 
 colorAt : Dict ( Int, Int ) Side -> Int -> Int -> String
@@ -324,11 +318,8 @@ winningScreen winner =
 view : Model -> Html Msg
 view model =
     let
-        _ =
-            Debug.log "!" model.boardState
-
         ( overlay, moveDisplay ) =
-            case won model of
+            case won model.boardState of
                 Just side ->
                     ( winningScreen side, emptyHtml )
 
@@ -345,7 +336,7 @@ view model =
                     div
                         [ classList
                             [ ( "cell-sel", True )
-                            , ( "active", model.cells == n )
+                            , ( "active", model.boardState.size == n )
                             ]
                         , Html.Events.onClick <| SetCells n
                         ]
@@ -353,7 +344,7 @@ view model =
                 )
             <|
                 List.range 7 19
-        , hexGrid (colorAt <| Debug.log "!!!" model.boardState.tiles) model.boardState.size
+        , hexGrid (colorAt model.boardState.tiles) model.boardState.size
         , div [ class "stats" ] [ moveDisplay ]
         , div []
             [ div [] [ text <| sideToString model.currentPlayer ++ "'s move" ]
