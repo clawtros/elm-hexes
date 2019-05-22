@@ -38,7 +38,7 @@ smallBoardStateWithRedWinning =
 
 
 smallBoardStateWithNearRedWin =
-    { size = 2
+    { size = 3
     , tiles =
         Dict.fromList
             [ ( ( 0, 0 ), Red )
@@ -56,13 +56,13 @@ aiTests =
             \() ->
                 Expect.equal Pos_Inf <|
                     evalBoard smallBoardStateWithRedWinning Red
-        -- , test "eval next move" <|
-        --     \() ->
-        --         let
-        --             { move } =
-        --                 bestMove smallBoardStateWithRedWinning Red
-        --         in
-        --             Expect.equal (Just ( ( 0, 2 ), Red )) move
+        , test "eval next move" <|
+            \() ->
+                let
+                    { move } =
+                        bestMove smallBoardStateWithRedWinning Red
+                in
+                    Expect.equal (Just ( ( 0, 2 ), Red )) move
         ]
 
 
@@ -85,7 +85,7 @@ pathTests =
         , test "hue matters" <|
             \() ->
                 Expect.equal False <|
-                    Main.pathIsWinning 2
+                    Main.pathIsWinning 3
                         ( Blue, [ ( 1, 0 ), ( 0, 1 ), ( 1, 2 ) ] )
         , test "no paths should be empty list" <|
             \() ->

@@ -112,34 +112,22 @@ bestMove state side =
 
         possibleMovesFunc : Node BoardState ( ( Int, Int ), Side ) -> List ( ( Int, Int ), Side )
         possibleMovesFunc node =
-            tupleSquare node.position.size
+            tupleSquare (node.position.size - 1)
                 |> List.map
                     (\( a, b ) ->
                         ( ( a, b )
-                        , if remainderBy node.depth 2 == 1 then
-                            side
-
-                          else
-                            notSide side
+                        , side
                         )
                     )
                 |> List.filter
                     (\( p, _ ) ->
                         not
                             (List.member p <|
-                                Debug.log "taken" <|
-                                    Dict.keys node.position.tiles
-                                        ++ (Maybe.withDefault [] <|
-                                                Maybe.map
-                                                    (Tuple.first
-                                                        >> List.singleton
-                                                    )
-                                                    node.move
-                                           )
+                                 Dict.keys node.position.tiles
                             )
                     )
     in
-    Minimax.minimax moveFunc valueFunc possibleMovesFunc state 1
+    Minimax.minimax moveFunc valueFunc possibleMovesFunc state 2
 
 
 flip : (a -> b -> c) -> b -> a -> c
@@ -221,15 +209,17 @@ update msg model =
                             else
                                 let
                                     { move } =
-                                        bestMove newModel.boardState Blue
+                                        Debug.log "move" <| bestMove newModel.boardState Blue
                                 in
                                 case move of
                                     Just ( ( x_, y_ ), _ ) ->
-                                        let
-                                            newState =
-                                                updateTiles newModel.boardState <| Dict.insert ( x_, y_ ) Blue newModel.boardState.tiles
-                                        in
-                                        { model | boardState = newState }
+                                        { model
+                                            | boardState =
+                                                updateTiles
+                                                    newModel.boardState
+                                                <|
+                                                    Dict.insert ( x_, y_ ) Blue newModel.boardState.tiles
+                                        }
 
                                     Nothing ->
                                         newModel
