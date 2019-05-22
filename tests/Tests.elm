@@ -54,7 +54,7 @@ aiTests =
     describe "test ai / board scoring"
         [ test "eval winning board" <|
             \() ->
-                Expect.equal Pos_Inf <|
+                Expect.equal 10001 <|
                     evalBoard smallBoardStateWithRedWinning Red
         , test "eval next move" <|
             \() ->

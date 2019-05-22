@@ -68,17 +68,32 @@ showIntegerExt intext =
             String.fromInt n
 
 
-evalBoard : BoardState -> Side -> IntegerExt Int
+evalBoard : BoardState -> Side -> Int
 evalBoard state side =
-    if
-        List.any (pathIsWinning state.size) <|
-            List.filter (\( s, _ ) -> s == side) <|
-                allPaths state
-    then
-        Pos_Inf
+    let
+        paths =
+            allPaths state
 
-    else
-        Number 0
+        yourPaths =
+            Debug.log "YP" <|
+                List.filter (\( s, _ ) -> s == side) paths
+
+        winningPaths =
+            List.filter (pathIsWinning state.size) paths
+
+        winningScore =
+            case winningPaths of
+                ( side_, _ ) :: rest ->
+                    if side_ == side then
+                        10000
+
+                    else
+                        -10000
+
+                _ ->
+                    0
+    in
+    winningScore + List.length yourPaths
 
 
 notSide : Side -> Side
@@ -100,15 +115,14 @@ bestMove state side =
 
         valueFunc : Node BoardState ( ( Int, Int ), Side ) -> Int
         valueFunc node =
-            case evalBoard node.position side of
-                Number n ->
-                    n
+            evalBoard node.position side
+                |> (*)
+                    (if remainderBy node.depth 2 == 0 then
+                        1
 
-                Pos_Inf ->
-                    1000
-
-                Neg_Inf ->
-                    -1000
+                     else
+                        -1
+                    )
 
         possibleMovesFunc : Node BoardState ( ( Int, Int ), Side ) -> List ( ( Int, Int ), Side )
         possibleMovesFunc node =
@@ -123,7 +137,7 @@ bestMove state side =
                     (\( p, _ ) ->
                         not
                             (List.member p <|
-                                 Dict.keys node.position.tiles
+                                Dict.keys node.position.tiles
                             )
                     )
     in
@@ -309,16 +323,7 @@ view model =
 
                 Nothing ->
                     ( emptyHtml
-                    , div []
-                        [ div [] [ text <| sideToString model.currentPlayer ++ "'s move" ]
-                        , div [] [ text <| showIntegerExt <| evalBoard model.boardState <| notSide model.currentPlayer ]
-                        , div []
-                            [ text <|
-                                String.fromInt <|
-                                    List.length <|
-                                        allPaths model.boardState
-                            ]
-                        ]
+                    , emptyHtml
                     )
     in
     div [ class "container" ]
@@ -339,6 +344,16 @@ view model =
                 List.range 7 19
         , hexGrid (colorAt <| Debug.log "!!!" model.boardState.tiles) model.boardState.size
         , div [ class "stats" ] [ moveDisplay ]
+        , div []
+            [ div [] [ text <| sideToString model.currentPlayer ++ "'s move" ]
+            , div [] [ text <| String.fromInt <| evalBoard model.boardState model.currentPlayer ]
+            , div []
+                [ text <|
+                    String.fromInt <|
+                        List.length <|
+                            allPaths model.boardState
+                ]
+            ]
         ]
 
 
