@@ -4,7 +4,7 @@ import Dict exposing (Dict)
 import Expect
 import Fuzz exposing (..)
 import GameBoard
-import Main exposing (addMove, allPaths, bestMove, evalBoard, pathAt, won)
+import Main exposing (addMove, allPaths, bestMove, evalBoard, pathAt, won, uniqueList)
 import Minimax exposing (IntegerExt(..), Node)
 import String
 import Test exposing (..)
@@ -49,19 +49,50 @@ smallBoardStateWithNearWin =
     }
 
 
+blockableRedWin =
+    { size = 3
+    , tiles =
+        Dict.fromList
+            [ ( ( 0, 0 ), Red )
+            , ( ( 0, 1 ), Red )
+            , ( ( 2, 2 ), Blue )
+            , ( ( 2, 1 ), Blue )
+            ]
+    }
+
+
 aiTests : Test
 aiTests =
     describe "test ai / board scoring"
-        [ test "can win" <|
+        [  test "can win" <|
+              \() ->
+                  let
+                      move =
+                          Maybe.withDefault ( ( -1, -1 ), Red )
+                              (bestMove smallBoardStateWithNearWin Blue 3).move
+                  in
+                      Expect.equal (Just Blue) <| won <| addMove smallBoardStateWithNearWin move
+          ,
+          --     test "can block" <|
+          --     \() ->
+          --         let
+          --             move =
+          --                 Maybe.withDefault ( ( -1, -1 ), Red )
+          --                     (bestMove smallBoardStateWithNearWin Blue 2).move
+          --         in
+          --             Expect.equal ( ( 0, 2 ), Blue ) move
+          -- ,
+          test "near win isn't actually a win" <|
             \() ->
-                let
-                    move =
-                        Maybe.withDefault ( ( -1, -1 ), Red )
-                            (bestMove smallBoardStateWithNearWin Blue).move
-                in
-                Expect.equal (Just Blue) <| won <| addMove smallBoardStateWithNearWin move
-        , test "near win isn't actually a win" <|
-            \() -> Expect.equal Nothing <| won smallBoardStateWithNearWin
+              Expect.equal Nothing <| won smallBoardStateWithNearWin
+        , test "uniques" <|
+            \() ->
+                uniqueList [ 1, 2, 2, 3, 3, 3, 3, 3, 3 ]
+                    |> List.sort
+                    |> Expect.equal [ 1, 2, 3 ]
+        , test "position is boardstate" <|
+            \() ->
+                Expect.equal (GameBoard.debugBoard smallBoardStateWithNearWin) (bestMove smallBoardStateWithNearWin Blue 2).position
         ]
 
 
