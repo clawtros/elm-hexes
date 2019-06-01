@@ -29,7 +29,7 @@ type Msg
     | Reset
     | GotAiMove (Maybe Move)
     | SetCells Int
-
+    | DoAI
 
 type alias BoardState =
     { tiles : Dict ( Int, Int ) Side
@@ -42,7 +42,7 @@ type alias Move =
 
 
 type alias Path =
-    ( Side, List ( Int, Int ) )
+    ( List ( Int, Int ), Side )
 
 
 type alias Model =

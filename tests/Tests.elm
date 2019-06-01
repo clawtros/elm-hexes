@@ -64,16 +64,15 @@ blockableRedWin =
 aiTests : Test
 aiTests =
     describe "test ai / board scoring"
-        [  test "can win" <|
-              \() ->
-                  let
-                      move =
-                          Maybe.withDefault ( ( -1, -1 ), Red )
-                              (bestMove smallBoardStateWithNearWin Blue 3).move
-                  in
-                      Expect.equal (Just Blue) <| won <| addMove smallBoardStateWithNearWin move
-          ,
-          --     test "can block" <|
+        [ test "can win" <|
+            \() ->
+                let
+                    move =
+                        Maybe.withDefault ( ( -1, -1 ), Red )
+                            (bestMove smallBoardStateWithNearWin Blue 3).move
+                in
+                    Expect.equal (Just Blue) <| won <| addMove smallBoardStateWithNearWin move
+        , --     test "can block" <|
           --     \() ->
           --         let
           --             move =
@@ -84,7 +83,7 @@ aiTests =
           -- ,
           test "near win isn't actually a win" <|
             \() ->
-              Expect.equal Nothing <| won smallBoardStateWithNearWin
+                Expect.equal Nothing <| won smallBoardStateWithNearWin
         , test "uniques" <|
             \() ->
                 uniqueList [ 1, 2, 2, 3, 3, 3, 3, 3, 3 ]
@@ -101,29 +100,29 @@ pathTests =
     describe "pathing tests "
         [ test "single point path" <|
             \() ->
-                Expect.equal ( Blue, [ ( 0, 1 ) ] ) <|
+                Expect.equal ( [ ( 0, 1 ) ], Blue ) <|
                     Main.pathAt smallBoardStateWithPath Blue ( 0, 1 )
         , test "pathAt with path" <|
             \() ->
-                Expect.equal ( Red, [ ( 1, 0 ), ( 0, 0 ) ] ) <|
+                Expect.equal ( [ ( 1, 0 ), ( 0, 0 ) ], Red ) <|
                     Main.pathAt smallBoardStateWithPath Red ( 0, 0 )
         , test "winning path wins" <|
             \() ->
                 Expect.equal True <|
                     Main.pathIsWinning 2
-                        ( Red, [ ( 1, 0 ), ( 0, 1 ), ( 1, 2 ) ] )
+                        ( [ ( 1, 0 ), ( 0, 1 ), ( 1, 2 ) ], Red )
         , test "hue matters" <|
             \() ->
                 Expect.equal False <|
                     Main.pathIsWinning 3
-                        ( Blue, [ ( 1, 0 ), ( 0, 1 ), ( 1, 2 ) ] )
+                        ( [ ( 1, 0 ), ( 0, 1 ), ( 1, 2 ) ], Blue )
         , test "no paths should be empty list" <|
             \() ->
                 Expect.equal [] <|
                     Main.allPaths smallBoardState
         , test "get all paths" <|
             \() ->
-                Expect.equal [ ( Red, [ ( 1, 0 ), ( 0, 0 ) ] ), ( Blue, [ ( 0, 1 ) ] ) ] <|
+                Expect.equal [ ( [ ( 1, 0 ), ( 0, 0 ) ], Red ), ( [ ( 0, 1 ) ], Blue ) ] <|
                     Main.allPaths smallBoardStateWithPath
         , test "won " <|
             \() ->
@@ -163,7 +162,16 @@ tupleSquareTests =
 all : Test
 all =
     describe "all tests"
-        [ tupleSquareTests
-        , pathTests
-        , aiTests
+        [ --tupleSquareTests
+          --, pathTests
+          --, aiTests
+          test "can win" <|
+            \() ->
+                let
+                    move = Debug.log "MOEE!" <|
+                        Maybe.withDefault ( ( -1, -1 ), Red )
+                            (bestMove smallBoardStateWithNearWin Blue 3).move
+                    postMoveState = addMove smallBoardStateWithNearWin move
+                in
+                    Expect.equal (Just Blue) <| won (GameBoard.debugBoard postMoveState)
         ]

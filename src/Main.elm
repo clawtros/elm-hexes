@@ -1,4 +1,4 @@
-module Main exposing (addMove, allPaths, bestMove, colorAt, emptyHtml, evalBoard, flip, init, main, neighbours, pathAt, pathIsWinning, setTile, update, updateTiles, view, winningScreen, won, uniqueList)
+module Main exposing (..)
 
 import Browser
 import Dict exposing (Dict)
@@ -32,175 +32,11 @@ import Tuple
 import Types exposing (..)
 import Set exposing (Set)
 import Process
-
-
-uniqueList : List comparable -> List comparable
-uniqueList =
-    List.foldl
-        (\a ( acc, seen ) ->
-            if Set.member a seen then
-                ( acc, seen )
-            else
-                ( a :: acc, Set.insert a seen )
-        )
-        ( [], Set.empty )
-        >> Tuple.first
-
+import Evaluator exposing (evalBoard, won, allPaths, bestMove)
+import Util exposing (uniqueList)
 
 
 ---- MODEL ----
-
-
-allPaths : BoardState -> List Path
-allPaths state =
-    Dict.foldl
-        (\location val ( result, visited ) ->
-            if List.filter (\v -> v == location) visited /= [] then
-                ( result, visited )
-            else
-                let
-                    path =
-                        pathAt state val location
-                in
-                    ( result ++ [ path ], visited ++ Tuple.second path )
-        )
-        ( [], [] )
-        state.tiles
-        |> Tuple.first
-
-
-centerDistance : Int -> ( Int, Int ) -> Float
-centerDistance size ( x, y ) =
-    let
-        hs =
-            (toFloat size) / 2
-
-        dx =
-            toFloat x - hs
-
-        dy =
-            toFloat y - hs
-    in
-        sqrt <| dx * dx + dy * dy
-
-
-evalBoard : BoardState -> Side -> Int
-evalBoard state side =
-    let
-        paths =
-            allPaths state
-
-        coord =
-            case side of
-                Blue ->
-                    Tuple.first
-
-                Red ->
-                    Tuple.second
-
-        yourCells =
-            Dict.toList state.tiles
-                |> List.filterMap
-                    (\( p, s ) ->
-                        if s == side then
-                            Just p
-                        else
-                            Nothing
-                    )
-
-        emptyNeighbours =
-            List.concatMap neighbours yourCells
-                |> List.sort
-
-        yourPaths =
-            List.filter (\( s, _ ) -> s == side) paths
-
-        winningPaths =
-            List.filter (pathIsWinning state.size) paths
-
-        winningScore =
-            case winningPaths of
-                ( side_, _ ) :: _ ->
-                    10000
-
-                _ ->
-                    0
-    in
-        winningScore
-            + List.length
-                (List.range 0 (state.size - 1)
-                    |> List.filter (\n -> List.member n (List.map coord yourCells))
-                )
-            - (List.sum <| List.map (centerDistance state.size >> round) yourCells)
-
-
-notSide : Side -> Side
-notSide side =
-    case side of
-        Red ->
-            Blue
-
-        Blue ->
-            Red
-
-
-addMove : BoardState -> ( ( Int, Int ), Side ) -> BoardState
-addMove state ( p, s ) =
-    { state | tiles = Dict.insert p s state.tiles }
-
-
-debug s a =
-    a
-
-
-bestMove : BoardState -> Side -> Int -> Node BoardState ( ( Int, Int ), Side )
-bestMove state side recursionDepth =
-    let
-        moveFunc : Node BoardState ( ( Int, Int ), Side ) -> ( ( Int, Int ), Side ) -> BoardState
-        moveFunc node taken =
-            addMove node.position taken
-
-        valueFunc : Node BoardState ( ( Int, Int ), Side ) -> Int
-        valueFunc node =
-            evalBoard node.position side
-                |> debug "eval"
-
-        possibleMovesFunc : Node BoardState ( ( Int, Int ), Side ) -> List ( ( Int, Int ), Side )
-        possibleMovesFunc node =
-            let
-                t_ =
-                    debug "node " node
-
-                nn_ =
-                    debug "b" <| GameBoard.showBoardState t_.position
-
-                nnn_ =
-                    debug " h " <| evalBoard t_.position Red
-            in
-                tupleSquare (node.position.size - 1)
-                    |> List.map
-                        (\( a, b ) ->
-                            ( ( a, b )
-                            , if node.nodeType == Min then
-                                notSide side
-                              else
-                                side
-                            )
-                        )
-                    |> List.filter
-                        (\( p, _ ) ->
-                            not
-                                (List.member p <|
-                                    Dict.keys node.position.tiles
-                                )
-                        )
-    in
-        Minimax.minimax moveFunc valueFunc possibleMovesFunc state recursionDepth
-
-
-flip : (a -> b -> c) -> b -> a -> c
-flip f a b =
-    f b a
 
 
 init : ( Model, Cmd Msg )
@@ -210,63 +46,18 @@ init =
             { size = 6
             , tiles = Dict.empty
             }
-      , vsAi = True
+      , vsAi = False
       , thinking = False
       }
     , Cmd.none
     )
 
 
-pathIsWinning : Int -> Path -> Bool
-pathIsWinning boardSize ( side, path ) =
-    let
-        coord =
-            case side of
-                Blue ->
-                    Tuple.first
-
-                Red ->
-                    Tuple.second
-    in
-        List.all (flip List.any path)
-            [ coord >> (==) 0
-            , coord >> (==) (boardSize - 1)
-            ]
-
-
-won : BoardState -> Maybe Side
-won model =
-    allPaths model
-        |> List.filter (pathIsWinning model.size)
-        |> List.head
-        |> Maybe.map Tuple.first
-
-
-setTile : BoardState -> Int -> Int -> Side -> Result String BoardState
-setTile collection x y state =
-    case Dict.get ( x, y ) collection.tiles of
-        Just _ ->
-            Err "Attempted to set occupied tile"
-
-        Nothing ->
-            Ok <| updateTiles collection <| Dict.insert ( x, y ) state collection.tiles
-
-
-updateTiles : BoardState -> Dict ( Int, Int ) Side -> BoardState
-updateTiles state tiles =
-    { state | tiles = tiles }
-
-
-getAiMove : BoardState -> Side -> Maybe Move
-getAiMove state side =
-    (bestMove state side 4).move
-
-
 getMoveTask : BoardState -> Side -> Task Never (Maybe Move)
 getMoveTask state side =
-    Task.andThen
-        (\() -> Task.succeed <| getAiMove state side)
-        (Process.sleep 10)
+    Process.sleep 10
+        |> Task.andThen
+            (always ((bestMove state side 4).move |> Task.succeed))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -278,19 +69,28 @@ update msg model =
         GotAiMove move_ ->
             case move_ of
                 Just move ->
-                    ( { model
-                        | boardState = addMove model.boardState move
-                        , thinking = False
-                      }
-                    , Cmd.none
-                    )
+                    let
+                        newModel =
+                            { model
+                                | boardState = addMove model.boardState move
+                                , currentPlayer = notSide model.currentPlayer
+                                , thinking = False
+                            }
+                    in
+                        ( newModel
+                        , if won newModel.boardState /= Nothing then
+                            Cmd.none
+                          else
+                            Task.perform GotAiMove <|
+                                getMoveTask newModel.boardState model.currentPlayer
+                        )
 
                 Nothing ->
                     ( model, Cmd.none )
 
         TileClick x y ->
             if not model.thinking then
-                case setTile model.boardState x y model.currentPlayer of
+                case setTile model.boardState ( ( x, y ), model.currentPlayer ) of
                     Err _ ->
                         ( model, Cmd.none )
 
@@ -313,6 +113,12 @@ update msg model =
                                         ( newModel, Cmd.none )
             else
                 ( model, Cmd.none )
+
+        DoAI ->
+            ( { model | thinking = True, currentPlayer = notSide model.currentPlayer }
+            , Task.perform GotAiMove <|
+                getMoveTask model.boardState model.currentPlayer
+            )
 
         SetCells n ->
             let
@@ -338,41 +144,6 @@ colorAt tiles x y =
 
         Nothing ->
             "transparent"
-
-
-neighbours : ( Int, Int ) -> List ( Int, Int )
-neighbours ( x, y ) =
-    [ ( 0, -1 ), ( 1, -1 ), ( -1, 0 ), ( 1, 0 ), ( -1, 1 ), ( 0, 1 ) ]
-        |> List.map (\( xoff, yoff ) -> ( x + xoff, y + yoff ))
-
-
-pathAt : BoardState -> Side -> ( Int, Int ) -> Path
-pathAt state side point =
-    let
-        check leaves_ path =
-            case leaves_ of
-                [] ->
-                    -- TODO: whaaa?
-                    if path == [] then
-                        [ point ]
-                    else
-                        path
-
-                leaf :: leaves ->
-                    let
-                        newLeaves =
-                            List.filter
-                                (\p ->
-                                    Dict.get p state.tiles
-                                        == Just side
-                                        && not (List.member p path)
-                                )
-                            <|
-                                neighbours leaf
-                    in
-                        check (leaves ++ newLeaves) <| path ++ newLeaves
-    in
-        ( side, check [ point ] [] )
 
 
 emptyHtml : Html msg
@@ -412,6 +183,7 @@ view model =
                         ""
             ]
             [ overlay
+            , Html.button [ Html.Events.onClick DoAI ] [ text "GO AI" ]
             , div [] <|
                 List.map
                     (\n ->
@@ -425,7 +197,7 @@ view model =
                             [ text <| String.fromInt n ]
                     )
                 <|
-                    List.range 7 19
+                    List.range 3 11
             , hexGrid (colorAt model.boardState.tiles) model.boardState.size
             , div [ class "stats" ] [ moveDisplay ]
             , div []
@@ -437,10 +209,6 @@ view model =
                             List.length <|
                                 allPaths model.boardState
                     ]
-                , if model.thinking then
-                    Html.div [] [ text "thinking" ]
-                  else
-                    text ""
                 ]
             ]
 

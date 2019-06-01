@@ -31,6 +31,16 @@ showCellState side_ =
             "_"
 
 
+notSide : Side -> Side
+notSide side =
+    case side of
+        Red ->
+            Blue
+
+        Blue ->
+            Red
+
+
 debugBoard : BoardState -> BoardState
 debugBoard bs =
     let
@@ -59,7 +69,7 @@ showBoardStateRows { size, tiles } =
             )
         |> List.indexedMap
             (\i r ->
-                String.join " " <|
+                String.join "" <|
                     (List.map (always " ") <| List.range 1 i)
                         ++ r
             )
@@ -263,3 +273,60 @@ hexGrid colorize cellsAcross =
                         ++ (String.fromFloat <| width + (tilesize / 2))
                     )
                 ]
+
+
+neighbours : Int -> ( Int, Int ) -> List ( Int, Int )
+neighbours i ( x, y ) =
+    [ ( 0, -1 ), ( 1, -1 ), ( -1, 0 ), ( 1, 0 ), ( -1, 1 ), ( 0, 1 ) ]
+        |> List.map (\( xoff, yoff ) -> ( x + xoff, y + yoff ))
+        |> List.filter (\( x_, y_ ) -> x >= 0 && y >= 0 && x_ < i && y < i)
+
+
+pathAt : BoardState -> Side -> ( Int, Int ) -> Path
+pathAt state side point =
+    let
+        check leaves_ path =
+            case leaves_ of
+                [] ->
+                    -- TODO: whaaa?
+                    if path == [] then
+                        [ point ]
+                    else
+                        path
+
+                leaf :: leaves ->
+                    let
+                        newLeaves =
+                            List.filter
+                                (\p ->
+                                    Dict.get p state.tiles
+                                        == Just side
+                                        && not (List.member p path)
+                                )
+                            <|
+                                neighbours state.size leaf
+                    in
+                        check (leaves ++ newLeaves) <| path ++ newLeaves
+    in
+        ( check [ point ] [], side )
+
+
+setTile : BoardState -> Move -> Result String BoardState
+setTile collection ( ( x, y ), state ) =
+    case Dict.get ( x, y ) collection.tiles of
+        Just _ ->
+            Err "Attempted to set occupied tile"
+
+        Nothing ->
+            Ok <| updateTiles collection <| Dict.insert ( x, y ) state collection.tiles
+
+
+addMove : BoardState -> Move -> BoardState
+addMove collection move =
+    setTile collection move
+        |> Result.withDefault collection
+
+
+updateTiles : BoardState -> Dict ( Int, Int ) Side -> BoardState
+updateTiles state tiles =
+    { state | tiles = tiles }
