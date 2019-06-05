@@ -256,7 +256,7 @@ hexGrid colorize cellsAcross =
                                         , Svg.Events.onClick <|
                                             TileClick x y
                                         ]
-                                        []
+                                        [ ] 
                                     ]
                                         ++ (drawBorders tilesize <|
                                                 borders cellsAcross x y
@@ -279,7 +279,7 @@ neighbours : Int -> ( Int, Int ) -> List ( Int, Int )
 neighbours i ( x, y ) =
     [ ( 0, -1 ), ( 1, -1 ), ( -1, 0 ), ( 1, 0 ), ( -1, 1 ), ( 0, 1 ) ]
         |> List.map (\( xoff, yoff ) -> ( x + xoff, y + yoff ))
-        |> List.filter (\( x_, y_ ) -> x >= 0 && y >= 0 && x_ < i && y < i)
+        |> List.filter (\( x_, y_ ) -> x_ >= 0 && y_ >= 0 && x_ < i && y < i)
 
 
 pathAt : BoardState -> Side -> ( Int, Int ) -> Path

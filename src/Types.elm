@@ -30,7 +30,8 @@ type Msg
     | GotAiMove (Maybe Move)
     | SetCells Int
     | DoAI
-
+    | NoOp
+      
 type alias BoardState =
     { tiles : Dict ( Int, Int ) Side
     , size : Int

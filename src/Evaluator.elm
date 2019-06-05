@@ -7,7 +7,6 @@ import Minimax exposing (IntegerExt(..), Node, NodeType(..))
 import GameBoard exposing (addMove, tupleSquare, notSide, neighbours, pathAt)
 
 
-
 allPaths : BoardState -> List Path
 allPaths state =
     Dict.foldl
@@ -57,34 +56,24 @@ evalBoard state side =
             allNeighbours
                 |> List.filter (flip Dict.get state.tiles >> (==) Nothing)
 
-        yourPaths =
-            List.filter (\( _, s ) -> s == side) paths
+        ( yourPaths, otherPaths ) =
+            List.partition (\( _, s ) -> s == side) paths
 
         winningPaths =
-            List.filter (pathIsWinning state.size) paths
+            List.filter (pathIsWinning state.size)
 
         winningScore =
-            case winningPaths of
-                ( _, side_ ) :: _ ->
-                    100
-
-                _ ->
-                    0
-
-        coordRange l_ =
-            List.map coord l_
-                |> (\l ->
-                        Maybe.withDefault 0 (List.maximum l)
-                            - Maybe.withDefault 0 (List.minimum l)
-                   )
-    in
-        Tuple.first
-            ( Debug.log "S:" winningScore
-                - (List.sum <| List.map (centerDistance state.size >> round) yourCells)
-                -- + (List.sum (List.map (Tuple.first >> coordRange) yourPaths))
-                - List.length yourCells
-            , GameBoard.debugBoard state
+            (List.length (winningPaths yourPaths)
+                |> (*) 100000
             )
+                + (List.length (winningPaths otherPaths)
+                    |> (*) -100000
+                  )
+    in
+        winningScore
+            + (List.length emptyNeighbours
+                - List.length (uniqueList emptyNeighbours)
+              )
 
 
 pathIsWinning : Int -> Path -> Bool

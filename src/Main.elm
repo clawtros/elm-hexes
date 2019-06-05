@@ -43,21 +43,19 @@ init : ( Model, Cmd Msg )
 init =
     ( { currentPlayer = Red
       , boardState =
-            { size = 6
+            { size = 5
             , tiles = Dict.empty
             }
-      , vsAi = False
+      , vsAi = True
       , thinking = False
       }
     , Cmd.none
     )
 
 
-getMoveTask : BoardState -> Side -> Task Never (Maybe Move)
+getMoveTask : BoardState -> Side -> Cmd Msg
 getMoveTask state side =
-    Process.sleep 10
-        |> Task.andThen
-            (always ((bestMove state side 4).move |> Task.succeed))
+    Task.perform GotAiMove (Task.succeed (bestMove state side 5).move)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -73,16 +71,19 @@ update msg model =
                         newModel =
                             { model
                                 | boardState = addMove model.boardState move
-                                , currentPlayer = notSide model.currentPlayer
+
+                                --       , currentPlayer = notSide model.currentPlayer
                                 , thinking = False
                             }
                     in
                         ( newModel
-                        , if won newModel.boardState /= Nothing then
-                            Cmd.none
-                          else
-                            Task.perform GotAiMove <|
-                                getMoveTask newModel.boardState model.currentPlayer
+                          -- ,
+                          --     if won newModel.boardState /= Nothing then
+                          --     Cmd.none
+                          --   else
+                          --     Task.perform GotAiMove <|
+                          --         getMoveTask newModel.boardState model.currentPlayer
+                        , Cmd.none
                         )
 
                 Nothing ->
@@ -104,9 +105,8 @@ update msg model =
                             else
                                 case won newModel.boardState of
                                     Nothing ->
-                                        ( { newModel | thinking = True }
-                                        , Task.perform GotAiMove <|
-                                            getMoveTask newModel.boardState Blue
+                                        ( Debug.log "NM" { newModel | thinking = True }
+                                        , Task.perform (always NoOp) <| Process.sleep 0
                                         )
 
                                     Just _ ->
@@ -116,8 +116,7 @@ update msg model =
 
         DoAI ->
             ( { model | thinking = True, currentPlayer = notSide model.currentPlayer }
-            , Task.perform GotAiMove <|
-                getMoveTask model.boardState model.currentPlayer
+            , getMoveTask model.boardState model.currentPlayer
             )
 
         SetCells n ->
@@ -126,9 +125,14 @@ update msg model =
                     model.boardState
 
                 newBoardState =
-                    { boardState | size = n }
+                    { boardState | size = n, tiles = Dict.empty }
             in
                 ( { model | boardState = newBoardState }, Cmd.none )
+
+        NoOp ->
+            ( model
+            , getMoveTask model.boardState Blue
+            )
 
 
 colorAt : Dict ( Int, Int ) Side -> Int -> Int -> String
